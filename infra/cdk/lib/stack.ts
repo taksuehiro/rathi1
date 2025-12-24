@@ -28,6 +28,13 @@ export class RatispherdStack extends cdk.Stack {
       allowAllOutbound: true,
     })
 
+    // Lambda（VPC外）からのアクセスを許可
+    dbSecurityGroup.addIngressRule(
+      ec2.Peer.anyIpv4(),
+      ec2.Port.tcp(5432),
+      'Allow Lambda access (no VPC)'
+    )
+
     // Secrets Manager: DB認証情報
     const dbSecret = new secretsmanager.Secret(this, "DbSecret", {
       secretName: "rathi/db/credentials",
@@ -61,6 +68,7 @@ export class RatispherdStack extends cdk.Stack {
       deleteAutomatedBackups: true,
       removalPolicy: cdk.RemovalPolicy.DESTROY, // 開発環境用
       deletionProtection: false,
+      publiclyAccessible: true, // パブリックアクセス可能（VPC外のLambdaから接続）
     })
 
     // Lambda関数: API Read (GET系)
@@ -73,10 +81,7 @@ export class RatispherdStack extends cdk.Stack {
           exclude: ["*.ts", "*.test.ts"],
         }
       ),
-      vpc,
-      vpcSubnets: {
-        subnetType: ec2.SubnetType.PUBLIC,
-      },
+      // VPC設定を削除（VPC外に配置）
       environment: {
         DB_SECRET_NAME: dbSecret.secretName,
         DB_HOST: dbInstance.dbInstanceEndpointAddress,
@@ -90,13 +95,6 @@ export class RatispherdStack extends cdk.Stack {
 
     // Secrets Managerへのアクセス権限
     dbSecret.grantRead(apiReadHandler)
-
-    // VPC接続（RDSへのアクセス）
-    apiReadHandler.connections.allowTo(
-      dbInstance,
-      ec2.Port.tcp(5432),
-      "Allow Lambda to RDS"
-    )
 
     // API Gateway (HTTP API)
     const httpApi = new apigatewayv2.HttpApi(this, "HttpApi", {
@@ -159,10 +157,7 @@ export class RatispherdStack extends cdk.Stack {
           exclude: ["*.ts", "*.test.ts"],
         }
       ),
-      vpc,
-      vpcSubnets: {
-        subnetType: ec2.SubnetType.PUBLIC,
-      },
+      // VPC設定を削除（VPC外に配置）
       environment: {
         DB_SECRET_NAME: dbSecret.secretName,
         DB_HOST: dbInstance.dbInstanceEndpointAddress,
@@ -175,11 +170,6 @@ export class RatispherdStack extends cdk.Stack {
     })
 
     dbSecret.grantRead(apiAdminHandler)
-    apiAdminHandler.connections.allowTo(
-      dbInstance,
-      ec2.Port.tcp(5432),
-      "Allow Lambda to RDS"
-    )
 
     const adminIntegration = new apigatewayv2Integrations.HttpLambdaIntegration(
       "AdminIntegration",
