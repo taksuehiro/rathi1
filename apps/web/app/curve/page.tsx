@@ -28,8 +28,8 @@ export default function CurvePage() {
       
       // 簡易的にvaluationを計算（実際はAPIから取得すべき）
       const netPosition = positionsResult.components
-        .filter((c) => c.qtyMt !== null)
-        .reduce((sum, c) => sum + (c.qtyMt || 0), 0)
+        .filter((c: any) => c.qtyMt !== null)
+        .reduce((sum: number, c: any) => sum + (c.qtyMt || 0), 0)
       setValuation({
         netPosition,
         refTenor: 0,
