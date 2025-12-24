@@ -206,9 +206,16 @@ export class RatispherdStack extends cdk.Stack {
     })
     connectionAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic))
 
-    // CPUクレジットバランスアラーム
+    // CPUクレジットバランスアラーム（手動メトリクス作成）
     const cpuCreditAlarm = new cloudwatch.Alarm(this, "RdsCpuCreditAlarm", {
-      metric: dbInstance.metricCPUCreditBalance(),
+      metric: new cloudwatch.Metric({
+        namespace: 'AWS/RDS',
+        metricName: 'CPUCreditBalance',
+        dimensionsMap: {
+          DBInstanceIdentifier: dbInstance.instanceIdentifier,
+        },
+        statistic: 'Average',
+      }),
       threshold: 20,
       evaluationPeriods: 1,
       alarmDescription: "CPUクレジットバランスが低下しています",

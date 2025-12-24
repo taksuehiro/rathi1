@@ -10,6 +10,7 @@ applications:
           commands:
             - npm run build
       artifacts:
+        # appRoot(apps/web) からの相対パス
         baseDirectory: .next
         files:
           - '**/*'
