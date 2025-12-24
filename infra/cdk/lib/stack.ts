@@ -74,9 +74,9 @@ export class RatispherdStack extends cdk.Stack {
     // Lambda関数: API Read (GET系)
     const apiReadHandler = new lambda.Function(this, "ApiReadHandler", {
       runtime: lambda.Runtime.NODEJS_20_X,
-      handler: "handlers/dashboard.handler",
+      handler: "dist/handlers/dashboard.handler",
       code: lambda.Code.fromAsset(
-        path.join(__dirname, "../../../services/api/dist")
+        path.join(__dirname, "../../../services/api")
       ),
       // VPC設定を削除（VPC外に配置）
       environment: {
@@ -147,9 +147,9 @@ export class RatispherdStack extends cdk.Stack {
     // Lambda関数: API Admin (seed)
     const apiAdminHandler = new lambda.Function(this, "ApiAdminHandler", {
       runtime: lambda.Runtime.NODEJS_20_X,
-      handler: "handlers/admin-seed.handler",
+      handler: "dist/handlers/admin-seed.handler",
       code: lambda.Code.fromAsset(
-        path.join(__dirname, "../../../services/api/dist")
+        path.join(__dirname, "../../../services/api")
       ),
       // VPC設定を削除（VPC外に配置）
       environment: {
