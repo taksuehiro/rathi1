@@ -7,7 +7,6 @@ frontend:
         - npm ci
     build:
       commands:
-        - cd apps/web
         - npm run build
   artifacts:
     baseDirectory: apps/web/.next
