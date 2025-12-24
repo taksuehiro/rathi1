@@ -1,183 +1,147 @@
-"use client"
+'use client'
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Button } from "@/components/ui/button"
-import { api } from "@/lib/api"
-import type { CurvePoint, PositionComponent } from "@/lib/api-types"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts"
-import Link from "next/link"
+import { useState, useEffect } from 'react'
+import { api } from '@/lib/api'
+import type { PositionComponent, CurvePoint } from '@/lib/api-types'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 
 export default function CurvePage() {
-  const [asOf, setAsOf] = useState<string>("2026-07-05")
-  const [curve, setCurve] = useState<CurvePoint[]>([])
+  const [asOf, setAsOf] = useState('2026-07-05')
+  const [curveData, setCurveData] = useState<any>(null)
   const [valuation, setValuation] = useState<any>(null)
-  const [loading, setLoading] = useState(false)
-
-  const loadData = async () => {
-    setLoading(true)
-    try {
-      const [curveResult, positionsResult] = await Promise.all([
-        api.getCurve(asOf),
-        api.getPositions(asOf),
-      ])
-      setCurve(curveResult.curve)
-      
-      // 簡易的にvaluationを計算（実際はAPIから取得すべき）
-      const netPosition = positionsResult.components
-        .filter((c: any) => c.qtyMt !== null)
-        .reduce((sum: number, c: any) => sum + (c.qtyMt || 0), 0)
-      setValuation({
-        netPosition,
-        refTenor: 0,
-        futuresPrice: curveResult.curve.find((c) => c.tenorMonths === 0)?.futuresPriceUsd || 0,
-        mtm: netPosition * (curveResult.curve.find((c) => c.tenorMonths === 0)?.futuresPriceUsd || 0),
-      })
-    } catch (error: any) {
-      console.error("Error:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     loadData()
   }, [asOf])
 
-  const formatNumber = (num: number) => {
-    return new Intl.NumberFormat("ja-JP", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(num)
+  const loadData = async () => {
+    try {
+      setLoading(true)
+      
+      const [curveResult, positionsResult] = await Promise.all([
+        api.getCurve(asOf),
+        api.getPositions(asOf)
+      ])
+      
+      setCurveData(curveResult)
+      
+      // 簡易的にvaluationを計算（実際はAPIから取得すべき）
+      const netPosition = positionsResult.components
+        .filter((c: PositionComponent) => c.qtyMt !== null)
+        .reduce((sum: number, c: PositionComponent) => sum + (c.qtyMt || 0), 0)
+      
+      setValuation({
+        netPosition,
+        refTenor: 0,
+        futuresPrice: curveResult.curve.find((c: CurvePoint) => c.tenorMonths === 0)?.futuresPriceUsd || 0,
+        mtm: netPosition * (curveResult.curve.find((c: CurvePoint) => c.tenorMonths === 0)?.futuresPriceUsd || 0),
+      })
+    } catch (error: any) {
+      console.error('Error loading data:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const formatCurrency = (num: number) => {
-    return new Intl.NumberFormat("ja-JP", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(num)
+  if (loading) {
+    return <div className="p-8">読み込み中...</div>
   }
+
+  const chartData = curveData?.curve.map((c: CurvePoint) => ({
+    tenor: `${c.tenorMonths}M`,
+    price: c.futuresPriceUsd,
+  })) || []
 
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">カーブ・評価</h1>
-        <Link href="/">
-          <Button variant="outline">ダッシュボードに戻る</Button>
-        </Link>
+        
+        <div className="flex items-center gap-4">
+          <div>
+            <label className="text-sm font-medium">基準日 (As-of)</label>
+            <Input
+              type="date"
+              value={asOf}
+              onChange={(e) => setAsOf(e.target.value)}
+              className="w-48"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Net Position</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {valuation?.netPosition.toLocaleString()} mt
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Ref Tenor</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {valuation?.refTenor}M
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Futures Price</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              ${valuation?.futuresPrice.toLocaleString()}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">MTM</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              ${valuation?.mtm.toLocaleString()}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>基準日設定</CardTitle>
+          <CardTitle>先物カーブ (0-6M)</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4">
-            <div>
-              <Label htmlFor="as-of">基準日 (As-of)</Label>
-              <Input
-                id="as-of"
-                type="date"
-                value={asOf}
-                onChange={(e) => setAsOf(e.target.value)}
-                max="2026-07-05"
-                min="2026-01-01"
-              />
-            </div>
-            <Button onClick={loadData} disabled={loading}>
-              {loading ? "読み込み中..." : "更新"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-2 gap-6">
-        {/* 先物カーブ */}
-        <Card>
-          <CardHeader>
-            <CardTitle>先物カーブ (0〜6M)</CardTitle>
-            <CardDescription>as_of: {asOf}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <LineChart
-              width={400}
-              height={300}
-              data={curve.map((c) => ({
-                tenor: `${c.tenorMonths}M`,
-                price: c.futuresPriceUsd,
-              }))}
-            >
+          <ResponsiveContainer width="100%" height={400}>
+            <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="tenor" />
-              <YAxis />
+              <YAxis domain={['dataMin - 100', 'dataMax + 100']} />
               <Tooltip />
-              <Line type="monotone" dataKey="price" stroke="#8884d8" />
+              <Legend />
+              <Line 
+                type="monotone" 
+                dataKey="price" 
+                stroke="#3b82f6" 
+                strokeWidth={2}
+                name="Futures Price (USD)"
+              />
             </LineChart>
-            <Table className="mt-4">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>テナー</TableHead>
-                  <TableHead className="text-right">価格 (USD/t)</TableHead>
-                  <TableHead>価格ソース</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {curve.map((point) => (
-                  <TableRow key={point.tenorMonths}>
-                    <TableCell>{point.tenorMonths}M</TableCell>
-                    <TableCell className="text-right">
-                      {formatNumber(point.futuresPriceUsd)}
-                    </TableCell>
-                    <TableCell>{point.priceSource || "-"}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-
-        {/* 評価スナップショット */}
-        <Card>
-          <CardHeader>
-            <CardTitle>評価スナップショット</CardTitle>
-            <CardDescription>as_of: {asOf}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {valuation && (
-              <div className="space-y-4">
-                <div>
-                  <Label>参照テナー</Label>
-                  <p className="text-2xl font-bold">{valuation.refTenor}M</p>
-                </div>
-                <div>
-                  <Label>参照価格</Label>
-                  <p className="text-2xl font-bold">
-                    {formatNumber(valuation.futuresPrice)} USD/t
-                  </p>
-                </div>
-                <div>
-                  <Label>ポジション数量</Label>
-                  <p className="text-2xl font-bold">
-                    {formatNumber(valuation.netPosition)} mt
-                  </p>
-                </div>
-                <div>
-                  <Label>MTM Value</Label>
-                  <p className="text-2xl font-bold">
-                    {formatCurrency(valuation.mtm)}
-                  </p>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
     </div>
   )
 }
-
