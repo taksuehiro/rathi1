@@ -76,10 +76,7 @@ export class RatispherdStack extends cdk.Stack {
       runtime: lambda.Runtime.NODEJS_20_X,
       handler: "handlers/dashboard.handler",
       code: lambda.Code.fromAsset(
-        path.join(__dirname, "../../../services/api/dist"),
-        {
-          exclude: ["*.ts", "*.test.ts"],
-        }
+        path.join(__dirname, "../../../services/api/dist")
       ),
       // VPC設定を削除（VPC外に配置）
       environment: {
@@ -152,10 +149,7 @@ export class RatispherdStack extends cdk.Stack {
       runtime: lambda.Runtime.NODEJS_20_X,
       handler: "handlers/admin-seed.handler",
       code: lambda.Code.fromAsset(
-        path.join(__dirname, "../../../services/api/dist"),
-        {
-          exclude: ["*.ts", "*.test.ts"],
-        }
+        path.join(__dirname, "../../../services/api/dist")
       ),
       // VPC設定を削除（VPC外に配置）
       environment: {
