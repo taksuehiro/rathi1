@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "ts-node-dev --respawn --transpile-only src/local-server.ts",
+    "dev:mock": "ts-node-dev --respawn --transpile-only src/mock-server.ts",
     "test": "jest"
   },
   "dependencies": {

@@ -110,11 +110,19 @@ export async function handler(
     }
   } catch (error: any) {
     console.error('Error:', error)
+    const errorMessage = error.message || 'Internal server error'
+    const isDbError = errorMessage.includes('connect') || errorMessage.includes('ECONNREFUSED') || errorMessage.includes('timeout')
+    
     return {
       statusCode: 500,
       headers,
       body: JSON.stringify({
-        error: { code: 'INTERNAL_ERROR', message: error.message },
+        error: { 
+          code: 'INTERNAL_ERROR', 
+          message: isDbError 
+            ? 'データベースに接続できません。PostgreSQLが起動しているか確認してください。'
+            : errorMessage 
+        },
       }),
     }
   }

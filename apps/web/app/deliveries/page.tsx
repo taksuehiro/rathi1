@@ -6,7 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { getDeliveries, type Delivery } from "@/lib/api"
+import { api } from "@/lib/api"
+import type { Delivery } from "@/lib/api-types"
 import Link from "next/link"
 
 export default function DeliveriesPage() {
@@ -28,7 +29,7 @@ export default function DeliveriesPage() {
       }
       if (filters.periodType) params.periodType = filters.periodType
 
-      const result = await getDeliveries(params)
+      const result = await api.getDeliveries(params)
       setDeliveries(result.deliveries)
     } catch (error: any) {
       console.error("Error:", error)

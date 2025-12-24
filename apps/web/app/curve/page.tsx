@@ -6,7 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { getCurve, getPositions, type CurvePoint } from "@/lib/api"
+import { api } from "@/lib/api"
+import type { CurvePoint, PositionComponent } from "@/lib/api-types"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts"
 import Link from "next/link"
 
@@ -20,8 +21,8 @@ export default function CurvePage() {
     setLoading(true)
     try {
       const [curveResult, positionsResult] = await Promise.all([
-        getCurve(asOf),
-        getPositions(asOf),
+        api.getCurve(asOf),
+        api.getPositions(asOf),
       ])
       setCurve(curveResult.curve)
       

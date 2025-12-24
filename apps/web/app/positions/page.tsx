@@ -6,7 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { getPositions, type PositionComponent } from "@/lib/api"
+import { api } from "@/lib/api"
+import type { PositionComponent } from "@/lib/api-types"
 import Link from "next/link"
 
 export default function PositionsPage() {
@@ -17,7 +18,7 @@ export default function PositionsPage() {
   const loadPositions = async () => {
     setLoading(true)
     try {
-      const result = await getPositions(asOf)
+      const result = await api.getPositions(asOf)
       setComponents(result.components)
     } catch (error: any) {
       console.error("Error:", error)

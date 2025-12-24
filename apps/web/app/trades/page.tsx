@@ -6,7 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { getTrades, type Trade } from "@/lib/api"
+import { api } from "@/lib/api"
+import type { Trade } from "@/lib/api-types"
 import Link from "next/link"
 
 export default function TradesPage() {
@@ -32,7 +33,7 @@ export default function TradesPage() {
       if (filters.instrumentType) params.instrumentType = filters.instrumentType
       if (filters.tenorMonths) params.tenorMonths = parseInt(filters.tenorMonths)
 
-      const result = await getTrades(params)
+      const result = await api.getTrades(params)
       setTrades(result.trades)
     } catch (error: any) {
       console.error("Error:", error)

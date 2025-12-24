@@ -1,330 +1,277 @@
-"use client"
+'use client'
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { useToast } from "@/components/ui/use-toast"
-import { getDashboard, getSeries, seedData, type DashboardData, type SeriesData } from "@/lib/api"
-import { format } from "date-fns"
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line } from "recharts"
-import Link from "next/link"
-
-type PeriodType = "M" | "D"
+import { useState, useEffect } from 'react'
+import { api } from '@/lib/api'
+import type { DashboardData, SeriesData } from '@/lib/api-types'
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { TrendingUp, TrendingDown, DollarSign, Package, ArrowUpRight } from 'lucide-react'
 
 export default function DashboardPage() {
-  const [asOf, setAsOf] = useState<string>("2026-07-05")
-  const [periodType, setPeriodType] = useState<PeriodType>("D")
+  const [asOf, setAsOf] = useState('2026-07-05')
+  const [periodType, setPeriodType] = useState<'M' | 'D'>('D')
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
   const [seriesData, setSeriesData] = useState<SeriesData | null>(null)
-  const [loading, setLoading] = useState(false)
-  const { toast } = useToast()
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    loadDashboard()
+    loadData()
   }, [asOf])
 
-  useEffect(() => {
-    loadSeries()
-  }, [periodType])
-
-  const loadDashboard = async () => {
-    setLoading(true)
+  const loadData = async () => {
     try {
-      const data = await getDashboard(asOf)
-      setDashboardData(data)
-    } catch (error: any) {
-      toast({
-        title: "エラー",
-        description: error.message || "データの取得に失敗しました",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const loadSeries = async () => {
-    try {
-      const from = periodType === "M" ? "2026-01-31" : "2026-07-01"
-      const to = asOf
-
-      const [netPosition, mtm, loan] = await Promise.all([
-        getSeries("netPositionMt", from, to),
-        getSeries("mtmValueUsd", from, to),
-        getSeries("loanOutstandingUsd", from, to),
+      setLoading(true)
+      setError(null)
+      
+      const [dashboard, series] = await Promise.all([
+        api.getDashboard(asOf),
+        api.getSeries('netPositionMt', '2026-01-01', asOf)
       ])
-
-      setSeriesData({
-        metric: "combined",
-        from,
-        to,
-        data: netPosition.data.map((item, i) => ({
-          date: item.date,
-          periodType: item.periodType,
-          netPositionMt: item.value,
-          mtmValueUsd: mtm.data[i]?.value || 0,
-          loanOutstandingUsd: loan.data[i]?.value || 0,
-        })),
-      })
-    } catch (error: any) {
-      console.error("Series load error:", error)
-    }
-  }
-
-  const handleSeed = async () => {
-    setLoading(true)
-    try {
-      await seedData()
-      toast({
-        title: "成功",
-        description: "ダミーデータを生成しました",
-      })
-      await loadDashboard()
-      await loadSeries()
-    } catch (error: any) {
-      toast({
-        title: "エラー",
-        description: error.message || "データ生成に失敗しました",
-        variant: "destructive",
-      })
+      
+      setDashboardData(dashboard)
+      setSeriesData(series)
+    } catch (err: any) {
+      setError(err.message)
     } finally {
       setLoading(false)
     }
   }
 
-  const formatNumber = (num: number) => {
-    return new Intl.NumberFormat("ja-JP", {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(num)
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">読み込み中...</div>
+      </div>
+    )
   }
 
-  const formatCurrency = (num: number) => {
-    return new Intl.NumberFormat("ja-JP", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(num)
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+        <Card className="max-w-2xl shadow-xl">
+          <CardHeader>
+            <CardTitle className="text-red-600">エラーが発生しました</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="text-red-500 font-mono text-sm bg-red-50 p-4 rounded">
+              {error}
+            </div>
+            <div className="border-t pt-4">
+              <h3 className="font-semibold mb-2">解決方法:</h3>
+              <ol className="list-decimal list-inside space-y-2 text-sm">
+                <li>PostgreSQLデータベースが起動しているか確認してください</li>
+                <li>Docker Composeで起動: <code className="bg-slate-100 px-2 py-1 rounded">docker-compose up -d</code></li>
+                <li>APIサーバーが起動しているか確認: <code className="bg-slate-100 px-2 py-1 rounded">http://localhost:3001</code></li>
+                <li>ダミーデータを生成: <code className="bg-slate-100 px-2 py-1 rounded">cd scripts && npm run seed</code></li>
+              </ol>
+            </div>
+            <Button onClick={() => window.location.reload()} className="w-full">
+              再読み込み
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
+
+  const valuation = dashboardData?.valuation
+  const components = dashboardData?.components || []
+  const curve = dashboardData?.curve || []
+  
+  // Loan Outstanding取得
+  const loanComponent = components.find(c => c.componentCode === 'LOAN_OUTSTANDING_USD')
+  const loanOutstanding = loanComponent?.amountUsd || 0
+
+  // 数量系コンポーネントのみフィルタ
+  const qtyComponents = components.filter(c => c.qtyMt !== null)
+
+  // 先物カーブデータ整形
+  const curveChartData = curve.map(c => ({
+    tenor: `${c.tenorMonths}M`,
+    price: c.futuresPriceUsd
+  }))
+
+  // 時系列データ整形
+  const trendChartData = seriesData?.data.map(d => ({
+    date: new Date(d.date).toLocaleDateString('ja-JP', { month: '2-digit', day: '2-digit' }),
+    value: d.value,
+    type: d.periodType
+  })) || []
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">AI-Ratispherd Dashboard</h1>
-        <div className="flex gap-2">
-          <Button onClick={handleSeed} variant="outline" disabled={loading}>
-            {loading ? "処理中..." : "ダミーデータ生成"}
-          </Button>
-          <Link href="/trades">
-            <Button variant="outline">取引一覧</Button>
-          </Link>
-          <Link href="/deliveries">
-            <Button variant="outline">計上一覧</Button>
-          </Link>
-          <Link href="/positions">
-            <Button variant="outline">ポジション詳細</Button>
-          </Link>
-          <Link href="/curve">
-            <Button variant="outline">カーブ・評価</Button>
-          </Link>
-        </div>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>基準日・粒度設定</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="as-of">基準日 (As-of)</Label>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+      <div className="container mx-auto p-6 space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-bold text-slate-900 dark:text-white">
+              AI-Rathispherd Dashboard
+            </h1>
+            <p className="text-slate-600 dark:text-slate-400 mt-1">
+              錫（Tin）取引ポジション管理
+            </p>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                基準日 (As-of)
+              </label>
               <Input
-                id="as-of"
                 type="date"
                 value={asOf}
                 onChange={(e) => setAsOf(e.target.value)}
-                max="2026-07-05"
-                min="2026-01-01"
+                className="w-48"
               />
             </div>
-            <div>
-              <Label htmlFor="period-type">粒度</Label>
-              <select
-                id="period-type"
-                value={periodType}
-                onChange={(e) => setPeriodType(e.target.value as PeriodType)}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              >
-                <option value="M">月次 (M)</option>
-                <option value="D">日次 (D)</option>
-              </select>
+            
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                粒度
+              </label>
+              <Select value={periodType} onValueChange={(v: 'M' | 'D') => setPeriodType(v)}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="D">日次 (D)</SelectItem>
+                  <SelectItem value="M">月次 (M)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {dashboardData && (
-        <>
-          {/* KPI */}
-          <div className="grid grid-cols-3 gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Net Position</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold">
-                  {dashboardData.valuation
-                    ? formatNumber(dashboardData.valuation.netPositionMt)
-                    : "N/A"}{" "}
-                  mt
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>MTM Value</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold">
-                  {dashboardData.valuation
-                    ? formatCurrency(dashboardData.valuation.mtmValueUsd)
-                    : "N/A"}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Loan Outstanding</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold">
-                  {formatCurrency(
-                    dashboardData.components.find(
-                      (c) => c.componentCode === "LOAN_OUTSTANDING_USD"
-                    )?.amountUsd || 0
-                  )}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 shadow-xl">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium opacity-90 flex items-center gap-2">
+                <Package className="w-4 h-4" />
+                Net Position
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{valuation?.netPositionMt.toLocaleString()} mt</div>
+              <div className="text-xs opacity-75 mt-1 flex items-center gap-1">
+                <TrendingUp className="w-3 h-3" />
+                評価数量
+              </div>
+            </CardContent>
+          </Card>
 
-          {/* ポジション内訳（スタック棒） */}
-          <Card>
+          <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white border-0 shadow-xl">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium opacity-90 flex items-center gap-2">
+                <DollarSign className="w-4 h-4" />
+                MTM Value
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">
+                ${(valuation?.mtmValueUsd || 0).toLocaleString()}
+              </div>
+              <div className="text-xs opacity-75 mt-1 flex items-center gap-1">
+                <ArrowUpRight className="w-3 h-3" />
+                時価評価額
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white border-0 shadow-xl">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium opacity-90 flex items-center gap-2">
+                <DollarSign className="w-4 h-4" />
+                Loan Outstanding
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">
+                ${loanOutstanding.toLocaleString()}
+              </div>
+              <div className="text-xs opacity-75 mt-1">
+                貸付残高
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Charts Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Futures Curve */}
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle>先物カーブ (0-6M)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={curveChartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="tenor" />
+                  <YAxis domain={['dataMin - 100', 'dataMax + 100']} />
+                  <Tooltip />
+                  <Legend />
+                  <Line 
+                    type="monotone" 
+                    dataKey="price" 
+                    stroke="#3b82f6" 
+                    strokeWidth={2}
+                    name="Futures Price (USD)"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          {/* Position Components */}
+          <Card className="shadow-lg">
             <CardHeader>
               <CardTitle>ポジション内訳</CardTitle>
             </CardHeader>
             <CardContent>
-              <BarChart
-                width={800}
-                height={300}
-                data={[
-                  {
-                    name: "内訳",
-                    INVENTORY_ON_HAND:
-                      dashboardData.components.find(
-                        (c) => c.componentCode === "INVENTORY_ON_HAND"
-                      )?.qtyMt || 0,
-                    IN_TRANSIT:
-                      dashboardData.components.find(
-                        (c) => c.componentCode === "IN_TRANSIT"
-                      )?.qtyMt || 0,
-                    OPEN_PURCHASE:
-                      dashboardData.components.find(
-                        (c) => c.componentCode === "OPEN_PURCHASE"
-                      )?.qtyMt || 0,
-                    OPEN_SALES:
-                      dashboardData.components.find(
-                        (c) => c.componentCode === "OPEN_SALES"
-                      )?.qtyMt || 0,
-                    FUTURES_LME_NET:
-                      dashboardData.components.find(
-                        (c) => c.componentCode === "FUTURES_LME_NET"
-                      )?.qtyMt || 0,
-                  },
-                ]}
-              >
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={qtyComponents} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" />
+                  <YAxis type="category" dataKey="componentCode" width={150} />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="qtyMt" fill="#10b981" name="Quantity (mt)" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Trend Chart */}
+        <Card className="shadow-lg">
+          <CardHeader>
+            <CardTitle>Net Position 推移</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={trendChartData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
+                <XAxis dataKey="date" />
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="INVENTORY_ON_HAND" fill="#8884d8" />
-                <Bar dataKey="IN_TRANSIT" fill="#82ca9d" />
-                <Bar dataKey="OPEN_PURCHASE" fill="#ffc658" />
-                <Bar dataKey="OPEN_SALES" fill="#ff7300" />
-                <Bar dataKey="FUTURES_LME_NET" fill="#0088fe" />
-              </BarChart>
-            </CardContent>
-          </Card>
-
-          {/* 先物カーブ */}
-          <Card>
-            <CardHeader>
-              <CardTitle>先物カーブ (0〜6M)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <LineChart
-                width={800}
-                height={300}
-                data={dashboardData.curve.map((c) => ({
-                  tenor: `${c.tenorMonths}M`,
-                  price: c.futuresPriceUsd,
-                }))}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="tenor" />
-                <YAxis />
-                <Tooltip />
-                <Line type="monotone" dataKey="price" stroke="#8884d8" />
+                <Line 
+                  type="monotone" 
+                  dataKey="value" 
+                  stroke="#8b5cf6" 
+                  strokeWidth={2}
+                  name="Net Position (mt)"
+                />
               </LineChart>
-            </CardContent>
-          </Card>
-
-          {/* 推移 */}
-          {seriesData && (
-            <Card>
-              <CardHeader>
-                <CardTitle>推移</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <LineChart width={800} height={300} data={seriesData.data}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis yAxisId="left" />
-                  <YAxis yAxisId="right" orientation="right" />
-                  <Tooltip />
-                  <Legend />
-                  <Line
-                    yAxisId="left"
-                    type="monotone"
-                    dataKey="netPositionMt"
-                    stroke="#8884d8"
-                    name="Net Position (mt)"
-                  />
-                  <Line
-                    yAxisId="right"
-                    type="monotone"
-                    dataKey="mtmValueUsd"
-                    stroke="#82ca9d"
-                    name="MTM (USD)"
-                  />
-                  <Line
-                    yAxisId="right"
-                    type="monotone"
-                    dataKey="loanOutstandingUsd"
-                    stroke="#ffc658"
-                    name="Loan (USD)"
-                  />
-                </LineChart>
-              </CardContent>
-            </Card>
-          )}
-        </>
-      )}
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
-
