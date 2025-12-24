@@ -1,0 +1,17 @@
+{
+  "name": "rathi-seed-scripts",
+  "version": "0.1.0",
+  "scripts": {
+    "seed": "ts-node seed.ts"
+  },
+  "dependencies": {
+    "pg": "^8.11.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/pg": "^8.10.9",
+    "typescript": "^5.5.0",
+    "ts-node": "^10.9.2"
+  }
+}
+

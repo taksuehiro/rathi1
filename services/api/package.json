@@ -1,0 +1,23 @@
+{
+  "name": "ai-ratispherd-api",
+  "version": "0.1.0",
+  "description": "Lambda functions for AI-Rathispherd",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node-dev --respawn --transpile-only src/local-server.ts",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.540.0",
+    "pg": "^8.11.3"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.134",
+    "@types/node": "^20.14.0",
+    "@types/pg": "^8.10.9",
+    "typescript": "^5.5.0",
+    "ts-node-dev": "^2.0.0"
+  }
+}
+
