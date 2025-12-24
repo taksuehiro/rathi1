@@ -99,11 +99,11 @@ export const reducer = (state: State, action: Action): State => {
         toasts: state.toasts.map((t) =>
           t.id === toastId || toastId === undefined
             ? {
-                t,
+                ...t,
                 open: false,
               }
             : t
-        ),
+        ) as ToasterToast[],
       }
     }
     case "REMOVE_TOAST":
