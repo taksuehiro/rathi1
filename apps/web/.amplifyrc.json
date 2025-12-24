@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "frontend": {
+    "framework": "nextjs",
+    "config": {
+      "SourceDir": "apps/web",
+      "DistributionDir": ".next",
+      "BuildCommand": "npm run build",
+      "StartCommand": "npm run start"
+    }
+  }
+}
+
