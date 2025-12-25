@@ -21,6 +21,8 @@ export async function handler(
 
   // パスによる分岐
   const path = event.path || event.rawPath
+  console.log('DEBUG: path =', path)
+  console.log('DEBUG: event =', JSON.stringify(event))
   
   if (path === '/v1/series') {
     return handleSeries(event, headers)
