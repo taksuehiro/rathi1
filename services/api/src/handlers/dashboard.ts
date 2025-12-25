@@ -30,7 +30,11 @@ export async function handler(
   return handleDashboard(event, headers)
 }
 
-async function handleDashboard(event: APIGatewayProxyEvent, headers: any): Promise<APIGatewayProxyResult> {
+// Dashboard処理
+async function handleDashboard(
+  event: APIGatewayProxyEvent,
+  headers: any
+): Promise<APIGatewayProxyResult> {
   try {
     const asOf = event.queryStringParameters?.asOf
     if (!asOf) {
@@ -43,7 +47,6 @@ async function handleDashboard(event: APIGatewayProxyEvent, headers: any): Promi
       }
     }
 
-    // 1クエリで必要データを取得（UNION ALL使用）
     const result = await query(
       `
       -- valuations
@@ -101,7 +104,6 @@ async function handleDashboard(event: APIGatewayProxyEvent, headers: any): Promi
       [asOf]
     )
 
-    // データを整形
     const valuation = result.rows.find((r: any) => r.data_type === 'valuation')
     const components = result.rows.filter((r: any) => r.data_type === 'component')
     const curve = result.rows.filter((r: any) => r.data_type === 'curve')
@@ -136,25 +138,21 @@ async function handleDashboard(event: APIGatewayProxyEvent, headers: any): Promi
     }
   } catch (error: any) {
     console.error('Error:', error)
-    const errorMessage = error.message || 'Internal server error'
-    const isDbError = errorMessage.includes('connect') || errorMessage.includes('ECONNREFUSED') || errorMessage.includes('timeout')
-    
     return {
       statusCode: 500,
       headers,
       body: JSON.stringify({
-        error: { 
-          code: 'INTERNAL_ERROR', 
-          message: isDbError 
-            ? 'データベースに接続できません。PostgreSQLが起動しているか確認してください。'
-            : errorMessage 
-        },
+        error: { code: 'INTERNAL_ERROR', message: error.message },
       }),
     }
   }
 }
 
-async function handleSeries(event: APIGatewayProxyEvent, headers: any): Promise<APIGatewayProxyResult> {
+// Series処理
+async function handleSeries(
+  event: APIGatewayProxyEvent,
+  headers: any
+): Promise<APIGatewayProxyResult> {
   try {
     const metric = event.queryStringParameters?.metric
     const from = event.queryStringParameters?.from
@@ -166,13 +164,15 @@ async function handleSeries(event: APIGatewayProxyEvent, headers: any): Promise<
         statusCode: 400,
         headers,
         body: JSON.stringify({
-          error: { code: 'BAD_REQUEST', message: 'metric, from, to, and asOf are required' },
+          error: { 
+            code: 'BAD_REQUEST', 
+            message: 'metric, from, to, and asOf are required' 
+          },
         }),
       }
     }
 
-    // 時系列データを取得
-    // TODO: 実際のクエリを実装
+    // 時系列データ取得
     const result = await query(
       `
       SELECT 
@@ -180,12 +180,11 @@ async function handleSeries(event: APIGatewayProxyEvent, headers: any): Promise<
         period_type,
         position_qty_mt as value
       FROM valuations
-      WHERE as_of_date >= $1 AND as_of_date <= $2 AND as_of_date <= $3
+      WHERE as_of_date BETWEEN $1 AND $2
         AND scope = 'TOTAL'
-        AND period_type = 'D'
-      ORDER BY as_of_date ASC
+      ORDER BY as_of_date
       `,
-      [from, to, asOf]
+      [from, to]
     )
 
     return {
@@ -193,28 +192,23 @@ async function handleSeries(event: APIGatewayProxyEvent, headers: any): Promise<
       headers,
       body: JSON.stringify({
         metric,
+        from,
+        to,
+        asOf,
         data: result.rows.map((r: any) => ({
           date: r.date,
-          value: r.value ? parseFloat(r.value) : null,
+          value: parseFloat(r.value),
           periodType: r.period_type,
         })),
       }),
     }
   } catch (error: any) {
     console.error('Error:', error)
-    const errorMessage = error.message || 'Internal server error'
-    const isDbError = errorMessage.includes('connect') || errorMessage.includes('ECONNREFUSED') || errorMessage.includes('timeout')
-    
     return {
       statusCode: 500,
       headers,
       body: JSON.stringify({
-        error: { 
-          code: 'INTERNAL_ERROR', 
-          message: isDbError 
-            ? 'データベースに接続できません。PostgreSQLが起動しているか確認してください。'
-            : errorMessage 
-        },
+        error: { code: 'INTERNAL_ERROR', message: error.message },
       }),
     }
   }
