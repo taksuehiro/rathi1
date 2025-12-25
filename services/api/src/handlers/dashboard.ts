@@ -19,6 +19,18 @@ export async function handler(
     }
   }
 
+  // パスによる分岐
+  const path = event.path || event.rawPath
+  
+  if (path === '/v1/series') {
+    return handleSeries(event, headers)
+  }
+  
+  // デフォルトはdashboard処理
+  return handleDashboard(event, headers)
+}
+
+async function handleDashboard(event: APIGatewayProxyEvent, headers: any): Promise<APIGatewayProxyResult> {
   try {
     const asOf = event.queryStringParameters?.asOf
     if (!asOf) {
@@ -142,3 +154,68 @@ export async function handler(
   }
 }
 
+async function handleSeries(event: APIGatewayProxyEvent, headers: any): Promise<APIGatewayProxyResult> {
+  try {
+    const metric = event.queryStringParameters?.metric
+    const from = event.queryStringParameters?.from
+    const to = event.queryStringParameters?.to
+    const asOf = event.queryStringParameters?.asOf
+
+    if (!metric || !from || !to || !asOf) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({
+          error: { code: 'BAD_REQUEST', message: 'metric, from, to, and asOf are required' },
+        }),
+      }
+    }
+
+    // 時系列データを取得
+    // TODO: 実際のクエリを実装
+    const result = await query(
+      `
+      SELECT 
+        as_of_date as date,
+        period_type,
+        position_qty_mt as value
+      FROM valuations
+      WHERE as_of_date >= $1 AND as_of_date <= $2 AND as_of_date <= $3
+        AND scope = 'TOTAL'
+        AND period_type = 'D'
+      ORDER BY as_of_date ASC
+      `,
+      [from, to, asOf]
+    )
+
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({
+        metric,
+        data: result.rows.map((r: any) => ({
+          date: r.date,
+          value: r.value ? parseFloat(r.value) : null,
+          periodType: r.period_type,
+        })),
+      }),
+    }
+  } catch (error: any) {
+    console.error('Error:', error)
+    const errorMessage = error.message || 'Internal server error'
+    const isDbError = errorMessage.includes('connect') || errorMessage.includes('ECONNREFUSED') || errorMessage.includes('timeout')
+    
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({
+        error: { 
+          code: 'INTERNAL_ERROR', 
+          message: isDbError 
+            ? 'データベースに接続できません。PostgreSQLが起動しているか確認してください。'
+            : errorMessage 
+        },
+      }),
+    }
+  }
+}
