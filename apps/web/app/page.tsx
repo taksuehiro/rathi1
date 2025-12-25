@@ -29,7 +29,7 @@ export default function DashboardPage() {
       
       const [dashboard, series] = await Promise.all([
         api.getDashboard(asOf),
-        api.getSeries('netPositionMt', '2026-01-01', asOf)
+        api.getSeries('netPositionMt', '2026-01-01', asOf, asOf)
       ])
       
       setDashboardData(dashboard)
