@@ -17,9 +17,9 @@ export const api = {
     }
   },
 
-  async getSeries(metric: string, from: string, to: string) {
+  async getSeries(metric: string, from: string, to: string, asOf: string) {
     const res = await fetch(
-      `${API_BASE_URL}/v1/series?metric=${metric}&from=${from}&to=${to}`
+      `${API_BASE_URL}/v1/series?metric=${metric}&from=${from}&to=${to}&asOf=${asOf}`
     )
     if (!res.ok) throw new Error('Failed to fetch series')
     return res.json()
