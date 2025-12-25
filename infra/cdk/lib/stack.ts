@@ -28,12 +28,14 @@ export class RatispherdStack extends cdk.Stack {
       allowAllOutbound: true,
     })
 
-    // Lambda（VPC外）からのアクセスを許可
-    dbSecurityGroup.addIngressRule(
-      ec2.Peer.anyIpv4(),
-      ec2.Port.tcp(5432),
-      'Allow Lambda access (no VPC)'
-    )
+    // L1 Constructを使って直接ルールを定義（Geminiの推奨）
+    new ec2.CfnSecurityGroupIngress(this, 'DirectDbIngressRule', {
+      groupId: dbSecurityGroup.securityGroupId,
+      ipProtocol: 'tcp',
+      fromPort: 5432,
+      toPort: 5432,
+      cidrIp: '0.0.0.0/0',
+    })
 
     // Secrets Manager: DB認証情報
     const dbSecret = new secretsmanager.Secret(this, "DbSecret", {
