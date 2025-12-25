@@ -9,71 +9,89 @@ import * as cloudwatch from "aws-cdk-lib/aws-cloudwatch"
 import * as cloudwatchActions from "aws-cdk-lib/aws-cloudwatch-actions"
 import * as sns from "aws-cdk-lib/aws-sns"
 import { Construct } from "constructs"
+import * as path from "path"
 
 export class RatispherdStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props)
 
-    // VPC（既存のものを lookup）
-    const vpc = ec2.Vpc.fromLookup(this, 'Vpc', {
-      vpcId: 'vpc-0facf3267bd1f6760',
+    // VPC作成（簡易版：パブリックサブネットのみ）
+    const vpc = new ec2.Vpc(this, "Vpc", {
+      maxAzs: 2,
+      natGateways: 0, // コスト削減のためNAT Gatewayなし
     })
 
-    // DB Security Group
-    const dbSecurityGroup = new ec2.SecurityGroup(this, 'DbSecurityGroup', {
+    // セキュリティグループ
+    const dbSecurityGroup = new ec2.SecurityGroup(this, "DbSecurityGroup", {
       vpc,
+      description: "Security group for RDS PostgreSQL",
       allowAllOutbound: true,
     })
 
+    // Lambda（VPC外）からのアクセスを許可
     dbSecurityGroup.addIngressRule(
       ec2.Peer.anyIpv4(),
       ec2.Port.tcp(5432),
-      'Allow PostgreSQL'
+      'Allow Lambda access (no VPC)'
     )
 
-    // RDS（既存 or 既にある前提）
-    const dbInstance = rds.DatabaseInstance.fromDatabaseInstanceAttributes(
-      this,
-      'ImportedDatabase',
-      {
-        instanceIdentifier: 'ratispherdstack-databaseb269d8bb-qw9ndzzggoo0',
-        instanceEndpointAddress:
-          'ratispherdstack-databaseb269d8bb-qw9ndzzggoo0.czicicu6kcc8.ap-northeast-1.rds.amazonaws.com',
-        port: 5432,
-        securityGroups: [dbSecurityGroup],
-      }
-    )
-
-    const lambdaEnv = {
-      DB_HOST: dbInstance.instanceEndpoint.hostname,
-      DB_NAME: 'postgres',
-      DB_USER: 'postgres',
-      DB_PASSWORD: '<SECRET_FROM_SECRETS_MANAGER>',
-    }
-
-    // ✅ ApiAdminHandler（VPC IN）
-    const apiAdminHandler = new lambda.Function(this, 'ApiAdminHandlerVPC', {
-      runtime: lambda.Runtime.NODEJS_20_X,
-      code: lambda.Code.fromAsset('../../services/api'),
-      handler: 'dist/handlers/admin-seed.handler',
-      vpc,
-      vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
-      securityGroups: [dbSecurityGroup],
-      environment: lambdaEnv,
-      timeout: cdk.Duration.seconds(30),
+    // Secrets Manager: DB認証情報
+    const dbSecret = new secretsmanager.Secret(this, "DbSecret", {
+      secretName: "rathi/db/credentials",
+      generateSecretString: {
+        secretStringTemplate: JSON.stringify({ username: "postgres" }),
+        generateStringKey: "password",
+        excludeCharacters: '"@/\\',
+      },
     })
 
-    // ✅ ApiReadHandler（VPC IN）
-    const apiReadHandler = new lambda.Function(this, 'ApiReadHandlerVPC', {
-      runtime: lambda.Runtime.NODEJS_20_X,
-      code: lambda.Code.fromAsset('../../services/api'),
-      handler: 'dist/handlers/dashboard.handler',
+    // RDS PostgreSQL 16 (t4g.micro)
+    const dbInstance = new rds.DatabaseInstance(this, "Database", {
+      engine: rds.DatabaseInstanceEngine.postgres({
+        version: rds.PostgresEngineVersion.VER_16,
+      }),
+      instanceType: ec2.InstanceType.of(
+        ec2.InstanceClass.T4G,
+        ec2.InstanceSize.MICRO
+      ),
       vpc,
-      vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
+      vpcSubnets: {
+        subnetType: ec2.SubnetType.PUBLIC, // パブリックサブネット（コスト削減）
+      },
       securityGroups: [dbSecurityGroup],
-      environment: lambdaEnv,
-      timeout: cdk.Duration.seconds(30),
+      credentials: rds.Credentials.fromSecret(dbSecret),
+      databaseName: "rathi_tin",
+      allocatedStorage: 20,
+      storageType: rds.StorageType.GP3,
+      storageEncrypted: true,
+      backupRetention: cdk.Duration.days(7),
+      deleteAutomatedBackups: true,
+      removalPolicy: cdk.RemovalPolicy.DESTROY, // 開発環境用
+      deletionProtection: false,
+      publiclyAccessible: true, // パブリックアクセス可能（VPC外のLambdaから接続）
     })
+
+    // Lambda関数: API Read (GET系)
+    const apiReadHandler = new lambda.Function(this, "ApiReadHandler", {
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: "dist/handlers/dashboard.handler",
+      code: lambda.Code.fromAsset(
+        path.join(__dirname, "../../../services/api")
+      ),
+      // VPC設定なし（VPC外に配置）
+      environment: {
+        DB_SECRET_NAME: dbSecret.secretName,
+        DB_HOST: dbInstance.dbInstanceEndpointAddress,
+        DB_NAME: "rathi_tin",
+        DB_USER: "postgres",
+        DB_PASSWORD: dbSecret.secretValueFromJson("password").unsafeUnwrap(),
+      },
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 512,
+    })
+
+    // Secrets Managerへのアクセス権限
+    dbSecret.grantRead(apiReadHandler)
 
     // API Gateway (HTTP API)
     const httpApi = new apigatewayv2.HttpApi(this, "HttpApi", {
@@ -126,6 +144,26 @@ export class RatispherdStack extends cdk.Stack {
       integration: dashboardIntegration,
     })
 
+    // Lambda関数: API Admin (seed)
+    const apiAdminHandler = new lambda.Function(this, "ApiAdminHandler", {
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: "dist/handlers/admin-seed.handler",
+      code: lambda.Code.fromAsset(
+        path.join(__dirname, "../../../services/api")
+      ),
+      // VPC設定なし（VPC外に配置）
+      environment: {
+        DB_SECRET_NAME: dbSecret.secretName,
+        DB_HOST: dbInstance.dbInstanceEndpointAddress,
+        DB_NAME: "rathi_tin",
+        DB_USER: "postgres",
+        DB_PASSWORD: dbSecret.secretValueFromJson("password").unsafeUnwrap(),
+      },
+      timeout: cdk.Duration.seconds(60),
+      memorySize: 512,
+    })
+
+    dbSecret.grantRead(apiAdminHandler)
 
     const adminIntegration = new apigatewayv2Integrations.HttpLambdaIntegration(
       "AdminIntegration",
@@ -153,21 +191,20 @@ export class RatispherdStack extends cdk.Stack {
     connectionAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic))
 
     // CPUクレジットバランスアラーム（手動メトリクス作成）
-    // NOTE: fromDatabaseInstanceAttributesではinstanceIdentifierが取得できないため、一時的にコメントアウト
-    // const cpuCreditAlarm = new cloudwatch.Alarm(this, "RdsCpuCreditAlarm", {
-    //   metric: new cloudwatch.Metric({
-    //     namespace: 'AWS/RDS',
-    //     metricName: 'CPUCreditBalance',
-    //     dimensionsMap: {
-    //       DBInstanceIdentifier: dbInstance.instanceIdentifier,
-    //     },
-    //     statistic: 'Average',
-    //   }),
-    //   threshold: 20,
-    //   evaluationPeriods: 1,
-    //   alarmDescription: "CPUクレジットバランスが低下しています",
-    // })
-    // cpuCreditAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic))
+    const cpuCreditAlarm = new cloudwatch.Alarm(this, "RdsCpuCreditAlarm", {
+      metric: new cloudwatch.Metric({
+        namespace: 'AWS/RDS',
+        metricName: 'CPUCreditBalance',
+        dimensionsMap: {
+          DBInstanceIdentifier: dbInstance.instanceIdentifier,
+        },
+        statistic: 'Average',
+      }),
+      threshold: 20,
+      evaluationPeriods: 1,
+      alarmDescription: "CPUクレジットバランスが低下しています",
+    })
+    cpuCreditAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic))
 
     // CPU使用率アラーム
     const cpuAlarm = new cloudwatch.Alarm(this, "RdsCpuAlarm", {
@@ -189,11 +226,9 @@ export class RatispherdStack extends cdk.Stack {
       description: "RDS PostgreSQL Endpoint",
     })
 
-    // NOTE: dbSecretが定義されていないため、一時的にコメントアウト
-    // new cdk.CfnOutput(this, "DbSecretArn", {
-    //   value: dbSecret.secretArn,
-    //   description: "Secrets Manager ARN",
-    // })
+    new cdk.CfnOutput(this, "DbSecretArn", {
+      value: dbSecret.secretArn,
+      description: "Secrets Manager ARN",
+    })
   }
 }
-
