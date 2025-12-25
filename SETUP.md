@@ -97,3 +97,4 @@ Docker Desktopをインストールするか、ローカルのPostgreSQLを使�
 ローカルPostgreSQLを使用する場合:
 - `services/api/src/local-server.ts` の環境変数をローカルのPostgreSQL設定に合わせて変更
 
+

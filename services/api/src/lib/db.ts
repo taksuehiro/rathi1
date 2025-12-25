@@ -30,6 +30,7 @@ export const getPool = async () => {
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 5000,
       statement_timeout: 5000,
+      ssl: process.env.DB_HOST ? { rejectUnauthorized: false } : false,
     })
   }
   return pool

@@ -87,3 +87,4 @@ COMMENT ON TABLE futures_curve IS '先物カーブ（as_of時点の0〜6か月�
 COMMENT ON TABLE valuations IS '評価スナップショット（MVPは先物参照のみ）';
 COMMENT ON TABLE position_components IS '計算済みポジション内訳（ダッシュボード用）';
 
+
