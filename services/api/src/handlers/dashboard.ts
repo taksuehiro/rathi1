@@ -34,43 +34,57 @@ export async function handler(
     // 1クエリで必要データを取得（UNION ALL使用）
     const result = await query(
       `
-      WITH valuation_data AS (
-        SELECT 
-          'valuation' as data_type,
-          as_of_date,
-          period_type,
-          position_qty_mt as net_position_mt,
-          mtm_value_usd,
-          ref_tenor_months,
-          futures_price_usd
-        FROM valuations
-        WHERE as_of_date = $1 AND scope = 'TOTAL'
-      ),
-      components_data AS (
-        SELECT 
-          'component' as data_type,
-          as_of_date,
-          period_type,
-          component_code,
-          qty_mt,
-          amount_usd
-        FROM position_components
-        WHERE as_of_date = $1 AND scope = 'TOTAL'
-      ),
-      curve_data AS (
-        SELECT 
-          'curve' as data_type,
-          as_of_date,
-          tenor_months,
-          futures_price_usd
-        FROM futures_curve
-        WHERE as_of_date = $1
-      )
-      SELECT * FROM valuation_data
+      -- valuations
+      SELECT 
+        as_of_date,
+        period_type,
+        position_qty_mt as net_position_mt,
+        mtm_value_usd,
+        ref_tenor_months,
+        futures_price_usd,
+        NULL::text as component_code,
+        NULL::numeric as qty_mt,
+        NULL::numeric as amount_usd,
+        NULL::integer as tenor_months,
+        'valuation' as data_type
+      FROM valuations
+      WHERE as_of_date = $1 AND scope = 'TOTAL'
+      
       UNION ALL
-      SELECT * FROM components_data
+      
+      -- components
+      SELECT 
+        as_of_date,
+        period_type,
+        NULL::numeric as net_position_mt,
+        NULL::numeric as mtm_value_usd,
+        NULL::integer as ref_tenor_months,
+        NULL::numeric as futures_price_usd,
+        component_code,
+        qty_mt,
+        amount_usd,
+        NULL::integer as tenor_months,
+        'component' as data_type
+      FROM position_components
+      WHERE as_of_date = $1 AND scope = 'TOTAL'
+      
       UNION ALL
-      SELECT * FROM curve_data
+      
+      -- curve
+      SELECT 
+        as_of_date,
+        NULL::varchar(1) as period_type,
+        NULL::numeric as net_position_mt,
+        NULL::numeric as mtm_value_usd,
+        NULL::integer as ref_tenor_months,
+        futures_price_usd,
+        NULL::text as component_code,
+        NULL::numeric as qty_mt,
+        NULL::numeric as amount_usd,
+        tenor_months,
+        'curve' as data_type
+      FROM futures_curve
+      WHERE as_of_date = $1
       `,
       [asOf]
     )
