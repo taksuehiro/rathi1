@@ -54,7 +54,7 @@ export class RatispherdStack extends cdk.Stack {
     // ✅ ApiAdminHandler（VPC IN）
     const apiAdminHandler = new lambda.Function(this, 'ApiAdminHandlerVPC', {
       runtime: lambda.Runtime.NODEJS_20_X,
-      code: lambda.Code.fromAsset('services/api'),
+      code: lambda.Code.fromAsset('../services/api'),
       handler: 'dist/handlers/admin-seed.handler',
       vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
@@ -66,7 +66,7 @@ export class RatispherdStack extends cdk.Stack {
     // ✅ ApiReadHandler（VPC IN）
     const apiReadHandler = new lambda.Function(this, 'ApiReadHandlerVPC', {
       runtime: lambda.Runtime.NODEJS_20_X,
-      code: lambda.Code.fromAsset('services/api'),
+      code: lambda.Code.fromAsset('../services/api'),
       handler: 'dist/handlers/dashboard.handler',
       vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
