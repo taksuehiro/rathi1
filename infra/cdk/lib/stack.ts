@@ -178,6 +178,37 @@ export class RatispherdStack extends cdk.Stack {
       integration: adminIntegration,
     })
 
+    // Lambda関数: Schema Init
+    const schemaInitHandler = new lambda.Function(this, "SchemaInitHandler", {
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: "dist/handlers/admin-init-schema.handler",
+      code: lambda.Code.fromAsset(
+        path.join(__dirname, "../../../services/api")
+      ),
+      environment: {
+        DB_SECRET_NAME: dbSecret.secretName,
+        DB_HOST: dbInstance.dbInstanceEndpointAddress,
+        DB_NAME: "rathi_tin",
+        DB_USER: "postgres",
+        DB_PASSWORD: dbSecret.secretValueFromJson("password").unsafeUnwrap(),
+      },
+      timeout: cdk.Duration.seconds(60),
+      memorySize: 512,
+    })
+
+    dbSecret.grantRead(schemaInitHandler)
+
+    const schemaIntegration = new apigatewayv2Integrations.HttpLambdaIntegration(
+      "SchemaIntegration",
+      schemaInitHandler
+    )
+
+    httpApi.addRoutes({
+      path: "/v1/admin/init-schema",
+      methods: [apigatewayv2.HttpMethod.POST],
+      integration: schemaIntegration,
+    })
+
     // CloudWatch Alarms
     const alarmTopic = new sns.Topic(this, "AlarmTopic", {
       displayName: "Rathispherd Alarms",
