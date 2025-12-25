@@ -36,6 +36,7 @@ export class RatispherdStack extends cdk.Stack {
       this,
       'ImportedDatabase',
       {
+        instanceIdentifier: 'ratispherdstack-databaseb269d8bb-qw9ndzzggoo0',
         instanceEndpointAddress:
           'ratispherdstack-databaseb269d8bb-qw9ndzzggoo0.czicicu6kcc8.ap-northeast-1.rds.amazonaws.com',
         port: 5432,
