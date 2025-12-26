@@ -88,3 +88,4 @@ COMMENT ON TABLE valuations IS '評価スナップショット（MVPは先物参
 COMMENT ON TABLE position_components IS '計算済みポジション内訳（ダッシュボード用）';
 
 
+

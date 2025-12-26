@@ -58,3 +58,4 @@ CREATE TABLE IF NOT EXISTS futures_curve (
     UNIQUE(as_of_date, tenor_months)
 );
 
+

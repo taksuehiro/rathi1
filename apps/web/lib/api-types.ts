@@ -67,4 +67,45 @@ export interface CurvePoint {
   priceSource: string | null
 }
 
+export interface CustomerData {
+  asOf: string
+  summary: {
+    totalCustomers: number
+    aCustomers: { count: number; revenueShare: number }
+    bCustomers: { count: number; revenueShare: number }
+    top5Concentration: number
+  }
+  abcAnalysis: Array<{
+    category: 'A' | 'B' | 'C'
+    revenueShare: number
+    customerCount: number
+  }>
+  byIndustry: Array<{
+    industry: string
+    revenueShare: number
+    customerCount: number
+  }>
+  byRegion: Array<{
+    region: string
+    revenueShare: number
+    customerCount: number
+  }>
+  riskConcentration: Array<{
+    customerName: string
+    revenueShare: number
+  }>
+  customers: Array<{
+    customerName: string
+    industry: string
+    region: string
+    totalQuantityMt: number
+    totalAmountUsd: number
+    tradeCount: number
+    abcCategory: 'A' | 'B' | 'C'
+    riskLevel: 'High' | 'Medium' | 'Low'
+    lastTradeDate: string
+  }>
+}
+
+
 
