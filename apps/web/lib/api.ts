@@ -74,6 +74,7 @@ export const api = {
   },
 
   async getDeliveries(params: {
+    asOf?: string
     from?: string
     to?: string
     periodType?: string

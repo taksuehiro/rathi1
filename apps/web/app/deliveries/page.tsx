@@ -51,6 +51,7 @@ export default function DeliveriesPage() {
       console.log('Loading deliveries:', { dateFrom, dateTo }) // デバッグ
       
       const result = await api.getDeliveries({
+        asOf: asOf,
         from: dateFrom,
         to: dateTo,
         limit: 1000,
