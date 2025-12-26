@@ -156,6 +156,26 @@ export const api = {
     if (!res.ok) throw new Error('Failed to seed data')
   },
 
+  async explainDashboard(dashboardData: any) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/v1/explain/dashboard`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dashboardData),
+      })
+      if (!res.ok) {
+        const errorText = await res.text()
+        throw new Error(`Failed to explain dashboard: ${res.status} ${res.statusText} - ${errorText}`)
+      }
+      return res.json()
+    } catch (err: any) {
+      if (err.message.includes('fetch')) {
+        throw new Error(`APIサーバーに接続できません。APIサーバーが起動しているか確認してください: ${API_BASE_URL}`)
+      }
+      throw err
+    }
+  },
+
   async getCustomers(asOf: string) {
     try {
       // TODO: 実際のAPIエンドポイントが実装されたら置き換え

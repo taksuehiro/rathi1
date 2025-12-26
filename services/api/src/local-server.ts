@@ -70,6 +70,8 @@ const server = http.createServer(async (req, res) => {
       handler = seriesHandler
     } else if (path === '/v1/admin/seed' && method === 'POST') {
       handler = adminSeedHandler
+    } else if (path === '/v1/explain/dashboard' && method === 'POST') {
+      handler = explainHandler
     } else {
       res.writeHead(404, { 'Content-Type': 'application/json' })
       res.end(JSON.stringify({ error: 'Not Found' }))

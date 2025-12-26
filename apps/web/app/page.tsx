@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { TrendingUp, TrendingDown, DollarSign, Package, ArrowUpRight } from 'lucide-react'
+import AIPanel from '@/components/AIPanel'
 
 export default function DashboardPage() {
   const [asOf, setAsOf] = useState('2026-07-05')
@@ -85,6 +86,15 @@ export default function DashboardPage() {
   // Loan Outstanding取得
   const loanComponent = components.find(c => c.componentCode === 'LOAN_OUTSTANDING_USD')
   const loanOutstanding = loanComponent?.amountUsd || 0
+  
+  // AIパネル用のデータ準備
+  const aiPanelData = dashboardData ? {
+    netPosition: valuation?.netPositionMt || 0,
+    mtmValue: valuation?.mtmValueUsd || 0,
+    loanOutstanding: loanOutstanding,
+    curve: curve,
+    components: components,
+  } : null
 
   // 数量系コンポーネントのみフィルタ
   const qtyComponents = components.filter(c => c.qtyMt !== null)
@@ -103,8 +113,10 @@ export default function DashboardPage() {
   })) || []
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
-      <div className="container mx-auto p-6 space-y-6">
+    <div className="flex min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+      {/* メインコンテンツ（70%） */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="container mx-auto p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -271,7 +283,11 @@ export default function DashboardPage() {
             </ResponsiveContainer>
           </CardContent>
         </Card>
+        </div>
       </div>
+      
+      {/* AIパネル（30%） */}
+      {aiPanelData && <AIPanel dashboardData={aiPanelData} />}
     </div>
   )
 }
