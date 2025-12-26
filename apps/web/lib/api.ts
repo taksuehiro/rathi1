@@ -26,9 +26,30 @@ export const api = {
   },
 
   async getPositions(asOf: string) {
-    const res = await fetch(`${API_BASE_URL}/v1/positions?asOf=${asOf}`)
-    if (!res.ok) throw new Error('Failed to fetch positions')
-    return res.json()
+    try {
+      const res = await fetch(`${API_BASE_URL}/v1/positions?asOf=${asOf}`)
+      if (!res.ok) {
+        const errorText = await res.text()
+        let errorMessage = `Failed to fetch positions: ${res.status} ${res.statusText}`
+        try {
+          const errorJson = JSON.parse(errorText)
+          if (errorJson.error?.message) {
+            errorMessage = errorJson.error.message
+          }
+        } catch {
+          if (errorText) {
+            errorMessage += ` - ${errorText}`
+          }
+        }
+        throw new Error(errorMessage)
+      }
+      return res.json()
+    } catch (err: any) {
+      if (err.message.includes('fetch')) {
+        throw new Error(`APIサーバーに接続できません。APIサーバーが起動しているか確認してください: ${API_BASE_URL}`)
+      }
+      throw err
+    }
   },
 
   async getTrades(params: {
