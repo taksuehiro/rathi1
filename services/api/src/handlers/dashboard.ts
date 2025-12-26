@@ -20,7 +20,7 @@ export async function handler(
   }
 
   // パスによる分岐
-  const path = event.path || event.rawPath
+  const path = event.path || (event as any).rawPath
   console.log('DEBUG: path =', path)
   console.log('DEBUG: event =', JSON.stringify(event))
   

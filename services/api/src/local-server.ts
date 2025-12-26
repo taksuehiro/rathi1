@@ -6,6 +6,7 @@ import { handler as positionsHandler } from './handlers/positions'
 import { handler as curveHandler } from './handlers/curve'
 import { handler as seriesHandler } from './handlers/series'
 import { handler as adminSeedHandler } from './handlers/admin-seed'
+import { handler as explainHandler } from './handlers/explain'
 
 const PORT = process.env.PORT || 3001
 

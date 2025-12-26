@@ -92,9 +92,9 @@ export class RatispherdStack extends cdk.Stack {
     // Lambda関数: API Read (GET系) - VPC内
     const apiReadHandler = new lambda.Function(this, "ApiReadHandler", {
       runtime: lambda.Runtime.NODEJS_20_X,
-      handler: "dist/handlers/dashboard.handler",
+      handler: "handlers/dashboard.handler",
       code: lambda.Code.fromAsset(
-        path.join(__dirname, "../../../services/api")
+        path.join(__dirname, "../../../services/api/dist")
       ),
       vpc,
       vpcSubnets: {
@@ -117,9 +117,9 @@ export class RatispherdStack extends cdk.Stack {
     // Lambda関数: Explain (AI分析) - VPC内
     const explainHandler = new lambda.Function(this, "ExplainHandler", {
       runtime: lambda.Runtime.NODEJS_20_X,
-      handler: "dist/handlers/explain.handler",
+      handler: "handlers/explain.handler",
       code: lambda.Code.fromAsset(
-        path.join(__dirname, "../../../services/api")
+        path.join(__dirname, "../../../services/api/dist")
       ),
       vpc,
       vpcSubnets: {
@@ -152,9 +152,9 @@ export class RatispherdStack extends cdk.Stack {
     // Lambda関数: API Admin (seed) - VPC内
     const apiAdminHandler = new lambda.Function(this, "ApiAdminHandler", {
       runtime: lambda.Runtime.NODEJS_20_X,
-      handler: "dist/handlers/admin-seed.handler",
+      handler: "handlers/admin-seed.handler",
       code: lambda.Code.fromAsset(
-        path.join(__dirname, "../../../services/api")
+        path.join(__dirname, "../../../services/api/dist")
       ),
       vpc,
       vpcSubnets: {
@@ -177,9 +177,9 @@ export class RatispherdStack extends cdk.Stack {
     // Lambda関数: Schema Init - VPC内
     const schemaInitHandler = new lambda.Function(this, "SchemaInitHandler", {
       runtime: lambda.Runtime.NODEJS_20_X,
-      handler: "dist/handlers/admin-init-schema.handler",
+      handler: "handlers/admin-init-schema.handler",
       code: lambda.Code.fromAsset(
-        path.join(__dirname, "../../../services/api")
+        path.join(__dirname, "../../../services/api/dist")
       ),
       vpc,
       vpcSubnets: {
