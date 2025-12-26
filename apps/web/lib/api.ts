@@ -32,6 +32,7 @@ export const api = {
   },
 
   async getTrades(params: {
+    asOf?: string
     from?: string
     to?: string
     periodType?: string

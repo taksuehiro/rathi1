@@ -32,7 +32,7 @@ export default function TradesPage() {
 
   useEffect(() => {
     loadTrades()
-  }, [])
+  }, [asOf, dateFrom, dateTo])
 
   useEffect(() => {
     applyFilters()
@@ -43,6 +43,7 @@ export default function TradesPage() {
       setLoading(true)
       setError(null)
       const result = await api.getTrades({
+        asOf: asOf,
         from: dateFrom,
         to: dateTo,
         limit: 1000,
@@ -183,6 +184,20 @@ export default function TradesPage() {
             <p className="text-slate-600 dark:text-slate-400 mt-1">
               取引データの確認と分析
             </p>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                基準日 (As-of)
+              </label>
+              <Input
+                type="date"
+                value={asOf}
+                onChange={(e) => setAsOf(e.target.value)}
+                className="w-48"
+              />
+            </div>
           </div>
         </div>
 
