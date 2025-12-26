@@ -1,5 +1,61 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
-import { query } from '../lib/db'
+import { getPool } from '../lib/db'
+import * as fs from 'fs'
+import * as path from 'path'
+
+// ⚠️ 重要: Lambda実行時のパス解決
+// __dirnameはビルド後のdistディレクトリを指す
+const migrationsDir = path.join(__dirname, '../migrations')
+
+/**
+ * マイグレーションファイルを読み込んで実行
+ */
+async function runMigration(filename: string): Promise<void> {
+  const migrationPath = path.join(migrationsDir, filename)
+  
+  // ファイル存在確認
+  if (!fs.existsSync(migrationPath)) {
+    throw new Error(`Migration file not found: ${filename}`)
+  }
+
+  // SQLファイルを読み込み
+  const sqlContent = fs.readFileSync(migrationPath, 'utf-8')
+  
+  // プールからクライアントを取得
+  const pool = await getPool()
+  const client = await pool.connect()
+  
+  try {
+    // トランザクション開始
+    await client.query('BEGIN')
+    
+    // セミコロンで分割して順次実行
+    // 注意: セミコロンはSQL文の区切り文字として使用
+    const statements = sqlContent
+      .split(';')
+      .map(s => s.trim())
+      .filter(s => s.length > 0 && !s.startsWith('--'))
+    
+    console.log(`Executing migration: ${filename} (${statements.length} statements)`)
+    
+    for (const statement of statements) {
+      if (statement.length > 0) {
+        await client.query(statement)
+      }
+    }
+    
+    // コミット
+    await client.query('COMMIT')
+    console.log(`Migration completed: ${filename}`)
+  } catch (error: any) {
+    // ロールバック
+    await client.query('ROLLBACK')
+    console.error(`Migration failed: ${filename}`, error)
+    throw new Error(`Migration ${filename} failed: ${error.message}`)
+  } finally {
+    client.release()
+  }
+}
 
 export async function handler(
   event: APIGatewayProxyEvent
@@ -16,85 +72,57 @@ export async function handler(
   }
 
   try {
-    // Create tables
-    await query(`
-      CREATE TABLE IF NOT EXISTS trades (
-        id SERIAL PRIMARY KEY,
-        trade_date DATE NOT NULL,
-        contract_month VARCHAR(10) NOT NULL,
-        buy_sell VARCHAR(4) NOT NULL CHECK (buy_sell IN ('BUY', 'SELL')),
-        quantity_mt NUMERIC(10,2) NOT NULL,
-        price_usd NUMERIC(10,2) NOT NULL,
-        counterparty VARCHAR(100),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `)
-
-    await query(`
-      CREATE TABLE IF NOT EXISTS deliveries (
-        id SERIAL PRIMARY KEY,
-        delivery_date DATE NOT NULL,
-        contract_month VARCHAR(10) NOT NULL,
-        quantity_mt NUMERIC(10,2) NOT NULL,
-        warehouse VARCHAR(100),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `)
-
-    await query(`
-      CREATE TABLE IF NOT EXISTS position_components (
-        id SERIAL PRIMARY KEY,
-        as_of_date DATE NOT NULL,
-        period_type VARCHAR(1) NOT NULL CHECK (period_type IN ('M', 'D')),
-        scope VARCHAR(20) NOT NULL DEFAULT 'TOTAL',
-        component_code VARCHAR(50) NOT NULL,
-        qty_mt NUMERIC(10,2),
-        amount_usd NUMERIC(15,2),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(as_of_date, scope, component_code)
-      )
-    `)
-
-    await query(`
-      CREATE TABLE IF NOT EXISTS valuations (
-        id SERIAL PRIMARY KEY,
-        as_of_date DATE NOT NULL,
-        period_type VARCHAR(1) NOT NULL CHECK (period_type IN ('M', 'D')),
-        scope VARCHAR(20) NOT NULL DEFAULT 'TOTAL',
-        position_qty_mt NUMERIC(10,2) NOT NULL,
-        ref_tenor_months INTEGER NOT NULL,
-        futures_price_usd NUMERIC(10,2) NOT NULL,
-        mtm_value_usd NUMERIC(15,2) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(as_of_date, scope)
-      )
-    `)
-
-    await query(`
-      CREATE TABLE IF NOT EXISTS futures_curve (
-        id SERIAL PRIMARY KEY,
-        as_of_date DATE NOT NULL,
-        tenor_months INTEGER NOT NULL,
-        futures_price_usd NUMERIC(10,2) NOT NULL,
-        price_source VARCHAR(50) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(as_of_date, tenor_months)
-      )
-    `)
-
+    // イベントパラメータからマイグレーション版を取得
+    // bodyがJSON文字列の場合とオブジェクトの場合の両方に対応
+    let body: any = {}
+    if (event.body) {
+      try {
+        body = typeof event.body === 'string' ? JSON.parse(event.body) : event.body
+      } catch (e) {
+        // JSONパースに失敗した場合は空オブジェクト
+      }
+    }
+    
+    const version = body.migrationVersion || event.queryStringParameters?.migrationVersion || 'all'
+    
+    const executedMigrations: string[] = []
+    
+    // ⚠️ 'all'の場合は001→002の順序で実行
+    if (version === 'all' || version === '001') {
+      await runMigration('001_initial_schema.sql')
+      executedMigrations.push('001')
+    }
+    
+    if (version === 'all' || version === '002') {
+      await runMigration('002_add_position_limits.sql')
+      executedMigrations.push('002')
+    }
+    
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ success: true, message: 'Schema created successfully' }),
+      body: JSON.stringify({ 
+        success: true, 
+        message: 'Migration executed successfully',
+        version,
+        executedMigrations
+      }),
     }
   } catch (error: any) {
-    console.error('Error:', error)
+    console.error('Migration error:', error)
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: { code: 'INTERNAL_ERROR', message: error.message } }),
+      body: JSON.stringify({ 
+        error: { 
+          code: 'MIGRATION_ERROR', 
+          message: error.message,
+          details: error.stack
+        } 
+      }),
     }
   }
 }
+
 
 

@@ -4,7 +4,7 @@
   "description": "Lambda functions for AI-Rathispherd",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && copyfiles -u 1 \"src/migrations/**/*\" dist",
     "dev": "ts-node-dev --respawn --transpile-only src/local-server.ts",
     "dev:mock": "ts-node-dev --respawn --transpile-only src/mock-server.ts",
     "test": "jest"
@@ -18,8 +18,8 @@
     "@types/aws-lambda": "^8.10.134",
     "@types/node": "^20.14.0",
     "@types/pg": "^8.10.9",
-    "typescript": "^5.5.0",
-    "ts-node-dev": "^2.0.0"
+    "copyfiles": "^2.4.1",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.5.0"
   }
 }
-

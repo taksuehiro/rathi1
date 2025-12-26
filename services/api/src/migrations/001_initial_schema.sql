@@ -1,3 +1,6 @@
+-- 初期スキーマ
+-- 作成日: 2024-12-24
+
 -- Trades table
 CREATE TABLE IF NOT EXISTS trades (
     id SERIAL PRIMARY KEY,
@@ -57,6 +60,4 @@ CREATE TABLE IF NOT EXISTS futures_curve (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(as_of_date, tenor_months)
 );
-
-
 
