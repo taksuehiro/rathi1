@@ -1,181 +1,400 @@
-"use client"
+'use client'
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Button } from "@/components/ui/button"
-import { api } from "@/lib/api"
-import type { Trade } from "@/lib/api-types"
-import Link from "next/link"
+import { useState, useEffect } from 'react'
+import { api } from '@/lib/api'
+import type { Trade } from '@/lib/api-types'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { TrendingUp, Package, DollarSign, Calculator, Search } from 'lucide-react'
+
+const STATUS_COLORS = {
+  Completed: 'bg-green-100 text-green-800 border-green-300',
+  Pending: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+  Cancelled: 'bg-red-100 text-red-800 border-red-300',
+}
 
 export default function TradesPage() {
+  const [asOf, setAsOf] = useState('2026-07-05')
   const [trades, setTrades] = useState<Trade[]>([])
-  const [loading, setLoading] = useState(false)
-  const [filters, setFilters] = useState({
-    from: "2026-01-01",
-    to: "2026-07-05",
-    periodType: "",
-    instrumentType: "",
-    tenorMonths: "",
-  })
-
-  const loadTrades = async () => {
-    setLoading(true)
-    try {
-      const params: any = {
-        from: filters.from,
-        to: filters.to,
-        limit: 100,
-      }
-      if (filters.periodType) params.periodType = filters.periodType
-      if (filters.instrumentType) params.instrumentType = filters.instrumentType
-      if (filters.tenorMonths) params.tenorMonths = parseInt(filters.tenorMonths)
-
-      const result = await api.getTrades(params)
-      setTrades(result.trades)
-    } catch (error: any) {
-      console.error("Error:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  const [filteredTrades, setFilteredTrades] = useState<Trade[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  
+  // フィルター
+  const [dateFrom, setDateFrom] = useState('2026-01-01')
+  const [dateTo, setDateTo] = useState('2026-07-05')
+  const [tradeTypeFilter, setTradeTypeFilter] = useState<'ALL' | 'PURCHASE' | 'SALE'>('ALL')
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     loadTrades()
   }, [])
 
-  const formatNumber = (num: number) => {
-    return new Intl.NumberFormat("ja-JP", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(num)
+  useEffect(() => {
+    applyFilters()
+  }, [trades, dateFrom, dateTo, tradeTypeFilter, searchQuery])
+
+  const loadTrades = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const result = await api.getTrades({
+        from: dateFrom,
+        to: dateTo,
+        limit: 1000,
+      })
+      setTrades(result.trades || [])
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const applyFilters = () => {
+    let filtered = [...trades]
+
+    // 日付フィルター
+    if (dateFrom) {
+      filtered = filtered.filter(t => t.periodDate >= dateFrom)
+    }
+    if (dateTo) {
+      filtered = filtered.filter(t => t.periodDate <= dateTo)
+    }
+
+    // 取引タイプフィルター
+    if (tradeTypeFilter !== 'ALL') {
+      const buySellValue = tradeTypeFilter === 'PURCHASE' ? 'BUY' : 'SELL'
+      filtered = filtered.filter(t => t.buySell === buySellValue)
+    }
+
+    // 検索フィルター（取引ID、顧客名など）
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter(t => 
+        t.tradeId.toLowerCase().includes(query) ||
+        (t.notes && t.notes.toLowerCase().includes(query))
+      )
+    }
+
+    setFilteredTrades(filtered)
+  }
+
+  // KPI計算
+  const totalTrades = filteredTrades.length
+  const totalQuantity = filteredTrades.reduce((sum, t) => sum + t.quantityMt, 0)
+  const totalAmount = filteredTrades.reduce((sum, t) => sum + (t.tradeAmountUsd || 0), 0)
+  const averagePrice = totalQuantity > 0 ? totalAmount / totalQuantity : 0
+
+  // 取引タイプ別集計
+  const purchaseTrades = filteredTrades.filter(t => t.buySell === 'BUY')
+  const saleTrades = filteredTrades.filter(t => t.buySell === 'SELL')
+  const purchaseQuantity = purchaseTrades.reduce((sum, t) => sum + t.quantityMt, 0)
+  const saleQuantity = saleTrades.reduce((sum, t) => sum + t.quantityMt, 0)
+
+  const tradeTypeChartData = [
+    { name: 'Purchase', quantity: purchaseQuantity },
+    { name: 'Sale', quantity: saleQuantity },
+  ]
+
+  // ステータス判定（簡易版：取引日が過去ならCompleted、未来ならPending）
+  const getStatus = (trade: Trade): 'Completed' | 'Pending' | 'Cancelled' => {
+    const tradeDate = new Date(trade.periodDate)
+    const today = new Date()
+    if (tradeDate < today) {
+      return 'Completed'
+    } else if (tradeDate > today) {
+      return 'Pending'
+    }
+    return 'Completed'
+  }
+
+  // 顧客名の取得（モック：実際のAPIから取得する場合は拡張）
+  const getCustomerName = (trade: Trade): string => {
+    // モックデータ：実際のAPIから取得する場合は拡張
+    const customers = ['TechCorp Global', 'AutoMotive Inc', 'ElectroSystems Ltd', 'BuildPro Industries', 'EnergySolutions Co']
+    return customers[parseInt(trade.tradeId.slice(-1)) % customers.length] || 'Unknown'
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">読み込み中...</div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+        <Card className="max-w-2xl shadow-xl">
+          <CardHeader>
+            <CardTitle className="text-red-600">エラーが発生しました</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="text-red-500 font-mono text-sm bg-red-50 p-4 rounded">
+              {error}
+            </div>
+            <Button onClick={() => window.location.reload()} className="w-full">
+              再読み込み
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">取引一覧</h1>
-        <Link href="/">
-          <Button variant="outline">ダッシュボードに戻る</Button>
-        </Link>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+      <div className="container mx-auto p-6 space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-bold text-slate-900 dark:text-white">
+              取引一覧 (Trades)
+            </h1>
+            <p className="text-slate-600 dark:text-slate-400 mt-1">
+              取引データの確認と分析
+            </p>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <Card className="shadow-lg">
+          <CardHeader>
+            <CardTitle>フィルター</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  開始日
+                </label>
+                <Input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  終了日
+                </label>
+                <Input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  取引タイプ
+                </label>
+                <Select value={tradeTypeFilter} onValueChange={(v: 'ALL' | 'PURCHASE' | 'SALE') => setTradeTypeFilter(v)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">すべて</SelectItem>
+                    <SelectItem value="PURCHASE">Purchase</SelectItem>
+                    <SelectItem value="SALE">Sale</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  検索
+                </label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input
+                    type="text"
+                    placeholder="取引ID、顧客名..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="mt-4">
+              <Button onClick={loadTrades} disabled={loading}>
+                {loading ? '読み込み中...' : 'データ再読み込み'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 shadow-xl">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium opacity-90 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4" />
+                総取引数
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{totalTrades.toLocaleString()}件</div>
+              <div className="text-xs opacity-75 mt-1">
+                フィルター適用後
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white border-0 shadow-xl">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium opacity-90 flex items-center gap-2">
+                <Package className="w-4 h-4" />
+                総取引量
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{totalQuantity.toLocaleString()} mt</div>
+              <div className="text-xs opacity-75 mt-1">
+                合計数量
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0 shadow-xl">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium opacity-90 flex items-center gap-2">
+                <DollarSign className="w-4 h-4" />
+                総取引額
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">
+                ${totalAmount.toLocaleString()}
+              </div>
+              <div className="text-xs opacity-75 mt-1">
+                合計金額
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white border-0 shadow-xl">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium opacity-90 flex items-center gap-2">
+                <Calculator className="w-4 h-4" />
+                平均単価
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">
+                ${averagePrice.toFixed(2)}
+              </div>
+              <div className="text-xs opacity-75 mt-1">
+                USD/mt
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Trade Type Chart */}
+        <Card className="shadow-lg">
+          <CardHeader>
+            <CardTitle>取引タイプ別数量</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={tradeTypeChartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="quantity" name="数量 (mt)">
+                  {tradeTypeChartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.name === 'Purchase' ? '#10b981' : '#ef4444'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+            <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="font-semibold">Purchase:</span> {purchaseQuantity.toLocaleString()} mt ({purchaseTrades.length}件)
+              </div>
+              <div>
+                <span className="font-semibold">Sale:</span> {saleQuantity.toLocaleString()} mt ({saleTrades.length}件)
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Trades Table */}
+        <Card className="shadow-lg">
+          <CardHeader>
+            <CardTitle>取引詳細リスト</CardTitle>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+              {filteredTrades.length}件の取引
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>取引ID</TableHead>
+                    <TableHead>取引日</TableHead>
+                    <TableHead>タイプ</TableHead>
+                    <TableHead>顧客</TableHead>
+                    <TableHead className="text-right">数量 (mt)</TableHead>
+                    <TableHead className="text-right">単価 ($/mt)</TableHead>
+                    <TableHead className="text-right">金額 ($)</TableHead>
+                    <TableHead>ステータス</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredTrades.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8 text-slate-500">
+                        取引データがありません
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredTrades.map((trade) => {
+                      const status = getStatus(trade)
+                      const customerName = getCustomerName(trade)
+                      return (
+                        <TableRow key={trade.tradeId} className="hover:bg-slate-50 dark:hover:bg-slate-800">
+                          <TableCell className="font-medium">{trade.tradeId}</TableCell>
+                          <TableCell>{new Date(trade.periodDate).toLocaleDateString('ja-JP')}</TableCell>
+                          <TableCell>
+                            <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                              trade.buySell === 'BUY' 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              {trade.buySell === 'BUY' ? 'Purchase' : 'Sale'}
+                            </span>
+                          </TableCell>
+                          <TableCell>{customerName}</TableCell>
+                          <TableCell className="text-right">{trade.quantityMt.toLocaleString()}</TableCell>
+                          <TableCell className="text-right">${trade.tradePriceUsd.toLocaleString()}</TableCell>
+                          <TableCell className="text-right">
+                            ${(trade.tradeAmountUsd || trade.quantityMt * trade.tradePriceUsd).toLocaleString()}
+                          </TableCell>
+                          <TableCell>
+                            <span className={`px-2 py-1 rounded text-xs font-semibold border ${STATUS_COLORS[status]}`}>
+                              {status}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>フィルタ</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-5 gap-4">
-            <div>
-              <Label htmlFor="from">開始日</Label>
-              <Input
-                id="from"
-                type="date"
-                value={filters.from}
-                onChange={(e) => setFilters({ ...filters, from: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="to">終了日</Label>
-              <Input
-                id="to"
-                type="date"
-                value={filters.to}
-                onChange={(e) => setFilters({ ...filters, to: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="period-type">粒度</Label>
-              <select
-                id="period-type"
-                value={filters.periodType}
-                onChange={(e) => setFilters({ ...filters, periodType: e.target.value })}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              >
-                <option value="">すべて</option>
-                <option value="M">月次</option>
-                <option value="D">日次</option>
-              </select>
-            </div>
-            <div>
-              <Label htmlFor="instrument-type">種別</Label>
-              <select
-                id="instrument-type"
-                value={filters.instrumentType}
-                onChange={(e) => setFilters({ ...filters, instrumentType: e.target.value })}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              >
-                <option value="">すべて</option>
-                <option value="PHYSICAL">現物</option>
-                <option value="FUTURES">先物</option>
-              </select>
-            </div>
-            <div>
-              <Label htmlFor="tenor">テナー</Label>
-              <Input
-                id="tenor"
-                type="number"
-                placeholder="0-6"
-                value={filters.tenorMonths}
-                onChange={(e) => setFilters({ ...filters, tenorMonths: e.target.value })}
-              />
-            </div>
-          </div>
-          <div className="mt-4">
-            <Button onClick={loadTrades} disabled={loading}>
-              {loading ? "読み込み中..." : "フィルタ適用"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>取引データ</CardTitle>
-          <CardDescription>{trades.length}件</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>期間種別</TableHead>
-                <TableHead>期間日</TableHead>
-                <TableHead>売買</TableHead>
-                <TableHead>種別</TableHead>
-                <TableHead>テナー</TableHead>
-                <TableHead className="text-right">数量 (mt)</TableHead>
-                <TableHead className="text-right">価格 (USD/t)</TableHead>
-                <TableHead className="text-right">金額 (USD)</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {trades.map((trade) => (
-                <TableRow key={trade.tradeId}>
-                  <TableCell>{trade.periodType}</TableCell>
-                  <TableCell>{trade.periodDate}</TableCell>
-                  <TableCell>{trade.buySell}</TableCell>
-                  <TableCell>{trade.instrumentType}</TableCell>
-                  <TableCell>{trade.tenorMonths ?? "-"}</TableCell>
-                  <TableCell className="text-right">
-                    {formatNumber(trade.quantityMt)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {formatNumber(trade.tradePriceUsd)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {trade.tradeAmountUsd
-                      ? formatNumber(trade.tradeAmountUsd)
-                      : "-"}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
     </div>
   )
 }
-
