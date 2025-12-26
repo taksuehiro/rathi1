@@ -48,11 +48,16 @@ export default function DeliveriesPage() {
     try {
       setLoading(true)
       setError(null)
+      console.log('Loading deliveries:', { dateFrom, dateTo }) // デバッグ
+      
       const result = await api.getDeliveries({
         from: dateFrom,
         to: dateTo,
         limit: 1000,
       })
+      
+      console.log('Deliveries loaded:', result) // デバッグ
+      
       // APIレスポンスの構造を確認
       if (result && Array.isArray(result.deliveries)) {
         setDeliveries(result.deliveries)

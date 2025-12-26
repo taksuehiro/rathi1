@@ -79,10 +79,31 @@ export const api = {
     periodType?: string
     limit?: number
   }) {
-    const query = new URLSearchParams(params as any).toString()
-    const res = await fetch(`${API_BASE_URL}/v1/deliveries?${query}`)
-    if (!res.ok) throw new Error('Failed to fetch deliveries')
-    return res.json()
+    try {
+      const query = new URLSearchParams(params as any).toString()
+      const res = await fetch(`${API_BASE_URL}/v1/deliveries?${query}`)
+      if (!res.ok) {
+        const errorText = await res.text()
+        let errorMessage = `Failed to fetch deliveries: ${res.status} ${res.statusText}`
+        try {
+          const errorJson = JSON.parse(errorText)
+          if (errorJson.error?.message) {
+            errorMessage = errorJson.error.message
+          }
+        } catch {
+          if (errorText) {
+            errorMessage += ` - ${errorText}`
+          }
+        }
+        throw new Error(errorMessage)
+      }
+      return res.json()
+    } catch (err: any) {
+      if (err.message.includes('fetch')) {
+        throw new Error(`APIサーバーに接続できません。APIサーバーが起動しているか確認してください: ${API_BASE_URL}`)
+      }
+      throw err
+    }
   },
 
   async seedData() {
