@@ -47,9 +47,18 @@ export default function TradesPage() {
         to: dateTo,
         limit: 1000,
       })
-      setTrades(result.trades || [])
+      // APIレスポンスの構造を確認
+      if (result && Array.isArray(result.trades)) {
+        setTrades(result.trades)
+      } else if (result && Array.isArray(result)) {
+        // レスポンスが配列の場合
+        setTrades(result)
+      } else {
+        setTrades([])
+      }
     } catch (err: any) {
-      setError(err.message)
+      console.error('Error loading trades:', err)
+      setError(err.message || '取引データの取得に失敗しました')
     } finally {
       setLoading(false)
     }
@@ -139,9 +148,23 @@ export default function TradesPage() {
             <div className="text-red-500 font-mono text-sm bg-red-50 p-4 rounded">
               {error}
             </div>
-            <Button onClick={() => window.location.reload()} className="w-full">
-              再読み込み
-            </Button>
+            <div className="border-t pt-4">
+              <h3 className="font-semibold mb-2">解決方法:</h3>
+              <ol className="list-decimal list-inside space-y-2 text-sm">
+                <li>APIサーバーが起動しているか確認: <code className="bg-slate-100 px-2 py-1 rounded">http://localhost:3001</code></li>
+                <li>PostgreSQLデータベースが起動しているか確認</li>
+                <li>Docker Composeで起動: <code className="bg-slate-100 px-2 py-1 rounded">docker-compose up -d</code></li>
+                <li>ダミーデータを生成: <code className="bg-slate-100 px-2 py-1 rounded">cd scripts && npm run seed</code></li>
+              </ol>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={loadTrades} className="flex-1">
+                再試行
+              </Button>
+              <Button onClick={() => window.location.reload()} variant="outline" className="flex-1">
+                ページ再読み込み
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
