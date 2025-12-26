@@ -43,70 +43,73 @@ INSERT INTO position_limits (limit_type, entity_id, limit_value, warning_thresho
   ('contract_month', '2026-M09', 300, 80, 95); -- 2026年9月限 上限300トン
 
 -- リミットチェック用ビュー
--- 注意: 既存のスキーマに合わせてカラム名を調整しています
-CREATE OR REPLACE VIEW position_limit_status AS
-SELECT 
-  pl.id,
-  pl.limit_type,
-  pl.entity_id,
-  pl.limit_value,
-  pl.warning_threshold,
-  pl.alert_threshold,
-  CASE 
-    WHEN pl.limit_type = 'net_position' THEN (
-      SELECT COALESCE(SUM(qty_mt), 0) FROM position_components WHERE as_of_date = CURRENT_DATE
-    )
-    WHEN pl.limit_type = 'customer_exposure' THEN (
-      SELECT COALESCE(SUM(quantity_mt), 0) FROM trades WHERE counterparty = pl.entity_id
-    )
-    WHEN pl.limit_type = 'contract_month' THEN (
-      SELECT COALESCE(SUM(quantity_mt), 0) FROM trades 
-      WHERE contract_month = pl.entity_id
-    )
-  END as current_value,
-  CASE 
-    WHEN pl.limit_type = 'net_position' THEN (
-      SELECT COALESCE(SUM(qty_mt), 0) FROM position_components WHERE as_of_date = CURRENT_DATE
-    ) / pl.limit_value * 100
-    WHEN pl.limit_type = 'customer_exposure' THEN (
-      SELECT COALESCE(SUM(quantity_mt), 0) FROM trades WHERE counterparty = pl.entity_id
-    ) / pl.limit_value * 100
-    WHEN pl.limit_type = 'contract_month' THEN (
-      SELECT COALESCE(SUM(quantity_mt), 0) FROM trades 
-      WHERE contract_month = pl.entity_id
-    ) / pl.limit_value * 100
-  END as utilization_pct,
-  CASE
-    WHEN (
-      CASE 
-        WHEN pl.limit_type = 'net_position' THEN (
-          SELECT COALESCE(SUM(qty_mt), 0) FROM position_components WHERE as_of_date = CURRENT_DATE
-        )
-        WHEN pl.limit_type = 'customer_exposure' THEN (
-          SELECT COALESCE(SUM(quantity_mt), 0) FROM trades WHERE counterparty = pl.entity_id
-        )
-        WHEN pl.limit_type = 'contract_month' THEN (
-          SELECT COALESCE(SUM(quantity_mt), 0) FROM trades 
-          WHERE contract_month = pl.entity_id
-        )
-      END
-    ) / pl.limit_value * 100 >= pl.alert_threshold THEN 'alert'
-    WHEN (
-      CASE 
-        WHEN pl.limit_type = 'net_position' THEN (
-          SELECT COALESCE(SUM(qty_mt), 0) FROM position_components WHERE as_of_date = CURRENT_DATE
-        )
-        WHEN pl.limit_type = 'customer_exposure' THEN (
-          SELECT COALESCE(SUM(quantity_mt), 0) FROM trades WHERE counterparty = pl.entity_id
-        )
-        WHEN pl.limit_type = 'contract_month' THEN (
-          SELECT COALESCE(SUM(quantity_mt), 0) FROM trades 
-          WHERE contract_month = pl.entity_id
-        )
-      END
-    ) / pl.limit_value * 100 >= pl.warning_threshold THEN 'warning'
-    ELSE 'normal'
-  END as status
-FROM position_limits pl
-WHERE pl.is_active = true;
+-- 注意: VIEWの作成は後回し（別のマイグレーションで実行）
+-- 理由: 同じトランザクション内でテーブル作成直後にVIEWを作成すると、
+--       position_limitsテーブルが参照できない場合があるため
+-- 
+-- CREATE OR REPLACE VIEW position_limit_status AS
+-- SELECT 
+--   pl.id,
+--   pl.limit_type,
+--   pl.entity_id,
+--   pl.limit_value,
+--   pl.warning_threshold,
+--   pl.alert_threshold,
+--   CASE 
+--     WHEN pl.limit_type = 'net_position' THEN (
+--       SELECT COALESCE(SUM(qty_mt), 0) FROM position_components WHERE as_of_date = CURRENT_DATE
+--     )
+--     WHEN pl.limit_type = 'customer_exposure' THEN (
+--       SELECT COALESCE(SUM(quantity_mt), 0) FROM trades WHERE counterparty = pl.entity_id
+--     )
+--     WHEN pl.limit_type = 'contract_month' THEN (
+--       SELECT COALESCE(SUM(quantity_mt), 0) FROM trades 
+--       WHERE contract_month = pl.entity_id
+--     )
+--   END as current_value,
+--   CASE 
+--     WHEN pl.limit_type = 'net_position' THEN (
+--       SELECT COALESCE(SUM(qty_mt), 0) FROM position_components WHERE as_of_date = CURRENT_DATE
+--     ) / pl.limit_value * 100
+--     WHEN pl.limit_type = 'customer_exposure' THEN (
+--       SELECT COALESCE(SUM(quantity_mt), 0) FROM trades WHERE counterparty = pl.entity_id
+--     ) / pl.limit_value * 100
+--     WHEN pl.limit_type = 'contract_month' THEN (
+--       SELECT COALESCE(SUM(quantity_mt), 0) FROM trades 
+--       WHERE contract_month = pl.entity_id
+--     ) / pl.limit_value * 100
+--   END as utilization_pct,
+--   CASE
+--     WHEN (
+--       CASE 
+--         WHEN pl.limit_type = 'net_position' THEN (
+--           SELECT COALESCE(SUM(qty_mt), 0) FROM position_components WHERE as_of_date = CURRENT_DATE
+--         )
+--         WHEN pl.limit_type = 'customer_exposure' THEN (
+--           SELECT COALESCE(SUM(quantity_mt), 0) FROM trades WHERE counterparty = pl.entity_id
+--         )
+--         WHEN pl.limit_type = 'contract_month' THEN (
+--           SELECT COALESCE(SUM(quantity_mt), 0) FROM trades 
+--           WHERE contract_month = pl.entity_id
+--         )
+--       END
+--     ) / pl.limit_value * 100 >= pl.alert_threshold THEN 'alert'
+--     WHEN (
+--       CASE 
+--         WHEN pl.limit_type = 'net_position' THEN (
+--           SELECT COALESCE(SUM(qty_mt), 0) FROM position_components WHERE as_of_date = CURRENT_DATE
+--         )
+--         WHEN pl.limit_type = 'customer_exposure' THEN (
+--           SELECT COALESCE(SUM(quantity_mt), 0) FROM trades WHERE counterparty = pl.entity_id
+--         )
+--         WHEN pl.limit_type = 'contract_month' THEN (
+--           SELECT COALESCE(SUM(quantity_mt), 0) FROM trades 
+--           WHERE contract_month = pl.entity_id
+--         )
+--       END
+--     ) / pl.limit_value * 100 >= pl.warning_threshold THEN 'warning'
+--     ELSE 'normal'
+--   END as status
+-- FROM position_limits pl
+-- WHERE pl.is_active = true;
 
