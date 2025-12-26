@@ -8,6 +8,7 @@ import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager"
 import * as cloudwatch from "aws-cdk-lib/aws-cloudwatch"
 import * as cloudwatchActions from "aws-cdk-lib/aws-cloudwatch-actions"
 import * as sns from "aws-cdk-lib/aws-sns"
+import * as iam from "aws-cdk-lib/aws-iam"
 import { Construct } from "constructs"
 import * as path from "path"
 
@@ -113,6 +114,41 @@ export class RatispherdStack extends cdk.Stack {
 
     dbSecret.grantRead(apiReadHandler)
 
+    // Lambda関数: Explain (AI分析) - VPC内
+    const explainHandler = new lambda.Function(this, "ExplainHandler", {
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: "dist/handlers/explain.handler",
+      code: lambda.Code.fromAsset(
+        path.join(__dirname, "../../../services/api")
+      ),
+      vpc,
+      vpcSubnets: {
+        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+      },
+      securityGroups: [lambdaSG],
+      environment: {
+        DB_SECRET_NAME: dbSecret.secretName,
+        DB_HOST: dbInstance.dbInstanceEndpointAddress,
+        DB_NAME: "rathi_tin",
+        DB_USER: "postgres",
+        DB_PASSWORD: dbSecret.secretValueFromJson("password").unsafeUnwrap(),
+      },
+      timeout: cdk.Duration.seconds(30), // Bedrock呼び出しのため長めに
+      memorySize: 512,
+    })
+
+    dbSecret.grantRead(explainHandler)
+
+    // Bedrock権限追加（本番環境用）
+    explainHandler.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['bedrock:InvokeModel'],
+        resources: [
+          'arn:aws:bedrock:ap-northeast-1::foundation-model/anthropic.claude-sonnet-4-20250514',
+        ],
+      })
+    )
+
     // Lambda関数: API Admin (seed) - VPC内
     const apiAdminHandler = new lambda.Function(this, "ApiAdminHandler", {
       runtime: lambda.Runtime.NODEJS_20_X,
@@ -172,7 +208,8 @@ export class RatispherdStack extends cdk.Stack {
           apigatewayv2.CorsHttpMethod.POST,
           apigatewayv2.CorsHttpMethod.OPTIONS
         ],
-        allowHeaders: ["Content-Type"],
+        allowHeaders: ["Content-Type", "Authorization"],
+        maxAge: cdk.Duration.days(1),
       },
     })
 
@@ -238,6 +275,18 @@ export class RatispherdStack extends cdk.Stack {
       path: "/v1/admin/init-schema",
       methods: [apigatewayv2.HttpMethod.POST],
       integration: schemaIntegration,
+    })
+
+    // Explain Integration
+    const explainIntegration = new apigatewayv2Integrations.HttpLambdaIntegration(
+      "ExplainIntegration",
+      explainHandler
+    )
+
+    httpApi.addRoutes({
+      path: "/v1/explain/dashboard",
+      methods: [apigatewayv2.HttpMethod.POST],
+      integration: explainIntegration,
     })
 
     // CloudWatch Alarms
