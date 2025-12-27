@@ -199,6 +199,31 @@ export class RatispherdStack extends cdk.Stack {
 
     dbSecret.grantRead(schemaInitHandler)
 
+    // Lambda関数: Limits Handler - VPC内
+    const limitsHandler = new lambda.Function(this, "LimitsHandler", {
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: "handlers/limits.handler",
+      code: lambda.Code.fromAsset(
+        path.join(__dirname, "../../../services/api/dist")
+      ),
+      vpc,
+      vpcSubnets: {
+        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+      },
+      securityGroups: [lambdaSG],
+      environment: {
+        DB_SECRET_NAME: dbSecret.secretName,
+        DB_HOST: dbInstance.dbInstanceEndpointAddress,
+        DB_NAME: "rathi_tin",
+        DB_USER: "postgres",
+        DB_PASSWORD: dbSecret.secretValueFromJson("password").unsafeUnwrap(),
+      },
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 512,
+    })
+
+    dbSecret.grantRead(limitsHandler)
+
     // API Gateway (HTTP API)
     const httpApi = new apigatewayv2.HttpApi(this, "HttpApi", {
       corsPreflight: {
@@ -287,6 +312,24 @@ export class RatispherdStack extends cdk.Stack {
       path: "/v1/explain/dashboard",
       methods: [apigatewayv2.HttpMethod.POST],
       integration: explainIntegration,
+    })
+
+    // Limits Integration
+    const limitsIntegration = new apigatewayv2Integrations.HttpLambdaIntegration(
+      "LimitsIntegration",
+      limitsHandler
+    )
+
+    httpApi.addRoutes({
+      path: "/v1/limits",
+      methods: [apigatewayv2.HttpMethod.GET, apigatewayv2.HttpMethod.POST],
+      integration: limitsIntegration,
+    })
+
+    httpApi.addRoutes({
+      path: "/v1/limits/status",
+      methods: [apigatewayv2.HttpMethod.GET],
+      integration: limitsIntegration,
     })
 
     // CloudWatch Alarms
