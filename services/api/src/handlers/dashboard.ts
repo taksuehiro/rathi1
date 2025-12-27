@@ -38,6 +38,11 @@ export async function handler(
     return handleLimitsStatus(event, headers)
   }
 
+  // 🆕 Trades追加
+  if (path === '/v1/trades') {
+    return handleTrades(event, headers)
+  }
+
   // デフォルトはdashboard処理
   return handleDashboard(event, headers)
 }
@@ -216,6 +221,66 @@ async function handleSeries(
     }
   } catch (error: any) {
     console.error('Error:', error)
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({
+        error: { code: 'INTERNAL_ERROR', message: error.message },
+      }),
+    }
+  }
+}
+
+// Trades処理（新しいスキーマ対応）
+async function handleTrades(
+  event: APIGatewayProxyEvent,
+  headers: any
+): Promise<APIGatewayProxyResult> {
+  try {
+    const params = event.queryStringParameters || {}
+    const from = params.from
+    const to = params.to
+    const limit = parseInt(params.limit || '100')
+
+    let sql = 'SELECT * FROM trades WHERE 1=1'
+    const queryParams: any[] = []
+    let paramIndex = 1
+
+    if (from) {
+      sql += ` AND trade_date >= $${paramIndex}`
+      queryParams.push(from)
+      paramIndex++
+    }
+
+    if (to) {
+      sql += ` AND trade_date <= $${paramIndex}`
+      queryParams.push(to)
+      paramIndex++
+    }
+
+    sql += ` ORDER BY trade_date DESC LIMIT $${paramIndex}`
+    queryParams.push(limit)
+
+    const result = await query(sql, queryParams)
+
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({
+        trades: result.rows.map((row: any) => ({
+          id: row.id,
+          tradeDate: row.trade_date,
+          contractMonth: row.contract_month,
+          buySell: row.buy_sell,
+          quantityMt: parseFloat(row.quantity_mt),
+          priceUsd: parseFloat(row.price_usd),
+          counterparty: row.counterparty,
+          createdAt: row.created_at,
+        })),
+      }),
+    }
+  } catch (error: any) {
+    console.error('Trades Error:', error)
     return {
       statusCode: 500,
       headers,
