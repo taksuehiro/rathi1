@@ -1,28 +1,6 @@
--- ポジションリミット管理機能
--- 作成日: 2025-12-27
+CREATE TABLE IF NOT EXISTS position_limits (id SERIAL PRIMARY KEY, limit_type VARCHAR(50) NOT NULL, entity_id VARCHAR(100), limit_value NUMERIC(12,2) NOT NULL, warning_threshold NUMERIC(5,2) DEFAULT 80.0, alert_threshold NUMERIC(5,2) DEFAULT 95.0, is_active BOOLEAN DEFAULT true, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
 
-CREATE TABLE IF NOT EXISTS position_limits (
-  id SERIAL PRIMARY KEY,
-  limit_type VARCHAR(50) NOT NULL,
-  entity_id VARCHAR(100),
-  limit_value NUMERIC(12,2) NOT NULL,
-  warning_threshold NUMERIC(5,2) DEFAULT 80.0,
-  alert_threshold NUMERIC(5,2) DEFAULT 95.0,
-  is_active BOOLEAN DEFAULT true,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS limit_violations (
-  id SERIAL PRIMARY KEY,
-  limit_id INTEGER REFERENCES position_limits(id),
-  violation_date DATE NOT NULL,
-  actual_value NUMERIC(12,2),
-  limit_value NUMERIC(12,2),
-  exceeded_by NUMERIC(12,2),
-  severity VARCHAR(20),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+CREATE TABLE IF NOT EXISTS limit_violations (id SERIAL PRIMARY KEY, limit_id INTEGER REFERENCES position_limits(id), violation_date DATE NOT NULL, actual_value NUMERIC(12,2), limit_value NUMERIC(12,2), exceeded_by NUMERIC(12,2), severity VARCHAR(20), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
 
 CREATE INDEX IF NOT EXISTS idx_position_limits_type ON position_limits(limit_type);
 
