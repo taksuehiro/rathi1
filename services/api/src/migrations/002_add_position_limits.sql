@@ -1,7 +1,6 @@
 -- ポジションリミット管理機能
 -- 作成日: 2025-12-27
 
--- ポジションリミットテーブル
 CREATE TABLE IF NOT EXISTS position_limits (
   id SERIAL PRIMARY KEY,
   limit_type VARCHAR(50) NOT NULL,
@@ -14,7 +13,6 @@ CREATE TABLE IF NOT EXISTS position_limits (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- リミット違反履歴テーブル
 CREATE TABLE IF NOT EXISTS limit_violations (
   id SERIAL PRIMARY KEY,
   limit_id INTEGER REFERENCES position_limits(id),
@@ -26,20 +24,24 @@ CREATE TABLE IF NOT EXISTS limit_violations (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- インデックス作成
 CREATE INDEX IF NOT EXISTS idx_position_limits_type ON position_limits(limit_type);
+
 CREATE INDEX IF NOT EXISTS idx_position_limits_entity ON position_limits(entity_id);
+
 CREATE INDEX IF NOT EXISTS idx_limit_violations_date ON limit_violations(violation_date);
+
 CREATE INDEX IF NOT EXISTS idx_limit_violations_severity ON limit_violations(severity);
 
--- 初期リミット設定
-INSERT INTO position_limits (limit_type, entity_id, limit_value, warning_threshold, alert_threshold) VALUES
-  ('net_position', NULL, 1000, 80, 95),
-  ('customer_exposure', 'CUST001', 300, 75, 90),
-  ('customer_exposure', 'CUST002', 200, 75, 90),
-  ('customer_exposure', 'CUST003', 250, 75, 90),
-  ('contract_month', '2026-M03', 500, 80, 95),
-  ('contract_month', '2026-M06', 400, 80, 95),
-  ('contract_month', '2026-M09', 300, 80, 95);
+INSERT INTO position_limits (limit_type, entity_id, limit_value, warning_threshold, alert_threshold) VALUES ('net_position', NULL, 1000, 80, 95);
 
--- VIEW作成は後で追加（003マイグレーション）
+INSERT INTO position_limits (limit_type, entity_id, limit_value, warning_threshold, alert_threshold) VALUES ('customer_exposure', 'CUST001', 300, 75, 90);
+
+INSERT INTO position_limits (limit_type, entity_id, limit_value, warning_threshold, alert_threshold) VALUES ('customer_exposure', 'CUST002', 200, 75, 90);
+
+INSERT INTO position_limits (limit_type, entity_id, limit_value, warning_threshold, alert_threshold) VALUES ('customer_exposure', 'CUST003', 250, 75, 90);
+
+INSERT INTO position_limits (limit_type, entity_id, limit_value, warning_threshold, alert_threshold) VALUES ('contract_month', '2026-M03', 500, 80, 95);
+
+INSERT INTO position_limits (limit_type, entity_id, limit_value, warning_threshold, alert_threshold) VALUES ('contract_month', '2026-M06', 400, 80, 95);
+
+INSERT INTO position_limits (limit_type, entity_id, limit_value, warning_threshold, alert_threshold) VALUES ('contract_month', '2026-M09', 300, 80, 95);
