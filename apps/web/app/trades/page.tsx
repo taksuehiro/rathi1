@@ -85,10 +85,12 @@ export default function TradesPage() {
     // 検索フィルター（取引ID、顧客名など）
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
-      filtered = filtered.filter(t => 
-        t.tradeId.toLowerCase().includes(query) ||
-        (t.notes && t.notes.toLowerCase().includes(query))
-      )
+      filtered = filtered.filter(t => {
+        const tradeId = String(t.tradeId || '').toLowerCase()
+        const customerName = (t as any).customerName?.toLowerCase() || ''
+        const notes = (t.notes || '').toLowerCase()
+        return tradeId.includes(query) || customerName.includes(query) || notes.includes(query)
+      })
     }
 
     setFilteredTrades(filtered)
@@ -123,11 +125,10 @@ export default function TradesPage() {
     return 'Completed'
   }
 
-  // 顧客名の取得（モック：実際のAPIから取得する場合は拡張）
+  // 顧客名の取得（APIレスポンスから取得）
   const getCustomerName = (trade: Trade): string => {
-    // モックデータ：実際のAPIから取得する場合は拡張
-    const customers = ['TechCorp Global', 'AutoMotive Inc', 'ElectroSystems Ltd', 'BuildPro Industries', 'EnergySolutions Co']
-    return customers[parseInt(trade.tradeId.slice(-1)) % customers.length] || 'Unknown'
+    // APIレスポンスにcustomerNameが含まれている場合はそれを使用
+    return (trade as any).customerName || 'Unknown'
   }
 
   if (loading) {

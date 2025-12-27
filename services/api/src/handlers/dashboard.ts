@@ -288,15 +288,22 @@ async function handleTrades(
       body: JSON.stringify({
         trades: result.rows.map((row: any) => {
           const counterparty = row.counterparty || ''
+          const quantityMt = parseFloat(row.quantity_mt)
+          const priceUsd = parseFloat(row.price_usd)
           return {
-            tradeId: row.id,
+            tradeId: String(row.id),
             customerId: counterparty,
             customerName: customerMaster[counterparty] || counterparty,
-            tradeDate: row.trade_date,
+            periodDate: row.trade_date,  // フロントエンドの期待: periodDate
+            periodType: 'D',  // デフォルト値（スキーマに存在しない）
             contractMonth: row.contract_month,
             buySell: row.buy_sell,
-            volumeTons: parseFloat(row.quantity_mt),
-            priceUsd: parseFloat(row.price_usd),
+            instrumentType: 'PHYSICAL',  // デフォルト値（スキーマに存在しない）
+            tenorMonths: null,  // デフォルト値（スキーマに存在しない）
+            quantityMt: quantityMt,  // フロントエンドの期待: quantityMt
+            tradePriceUsd: priceUsd,  // フロントエンドの期待: tradePriceUsd
+            tradeAmountUsd: quantityMt * priceUsd,  // 計算して追加
+            notes: null,  // デフォルト値（スキーマに存在しない）
             createdAt: row.created_at,
           }
         }),
