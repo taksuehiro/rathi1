@@ -231,6 +231,25 @@ async function handleSeries(
   }
 }
 
+// 顧客マスターデータ（admin-seed.tsと同じ）
+const customerMaster: Record<string, string> = {
+  'CUST001': 'Toyoda Manufacturing Co.',
+  'CUST002': 'Handa Motors Ltd.',
+  'CUST003': 'Nishin Automotive Inc.',
+  'CUST004': 'Panasonic Electronics Corp.',
+  'CUST005': 'Soni Technologies Ltd.',
+  'CUST006': 'Mitsubishii Heavy Industries',
+  'CUST007': 'Hitashi Systems Co.',
+  'CUST008': 'Tosheba Electronics',
+  'CUST009': 'Fujitzu Computing Ltd.',
+  'CUST010': 'NEC Nippon Electric',
+  'CUST011': 'Shapp Corporation',
+  'CUST012': 'Mazuda Motor Company',
+  'CUST013': 'Suburu Automotive',
+  'CUST014': 'Suzuky Motors Ltd.',
+  'CUST015': 'Yamaha Industrial Co.',
+}
+
 // Trades処理（新しいスキーマ対応）
 async function handleTrades(
   event: APIGatewayProxyEvent,
@@ -267,16 +286,20 @@ async function handleTrades(
       statusCode: 200,
       headers,
       body: JSON.stringify({
-        trades: result.rows.map((row: any) => ({
-          id: row.id,
-          tradeDate: row.trade_date,
-          contractMonth: row.contract_month,
-          buySell: row.buy_sell,
-          quantityMt: parseFloat(row.quantity_mt),
-          priceUsd: parseFloat(row.price_usd),
-          counterparty: row.counterparty,
-          createdAt: row.created_at,
-        })),
+        trades: result.rows.map((row: any) => {
+          const counterparty = row.counterparty || ''
+          return {
+            tradeId: row.id,
+            customerId: counterparty,
+            customerName: customerMaster[counterparty] || counterparty,
+            tradeDate: row.trade_date,
+            contractMonth: row.contract_month,
+            buySell: row.buy_sell,
+            volumeTons: parseFloat(row.quantity_mt),
+            priceUsd: parseFloat(row.price_usd),
+            createdAt: row.created_at,
+          }
+        }),
       }),
     }
   } catch (error: any) {
