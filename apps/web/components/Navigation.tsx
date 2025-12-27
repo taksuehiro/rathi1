@@ -10,6 +10,7 @@ import {
   Package,
   LineChart,
   Settings,
+  Shield,
 } from 'lucide-react'
 
 const menuItems = [
@@ -19,6 +20,7 @@ const menuItems = [
   { icon: Truck, label: 'Deliveries', href: '/deliveries' },
   { icon: Package, label: 'Positions', href: '/positions' },
   { icon: LineChart, label: 'Curve', href: '/curve' },
+  { icon: Shield, label: 'Limits', href: '/limits' },
   { icon: Settings, label: 'Settings', href: '/settings' },
 ]
 
