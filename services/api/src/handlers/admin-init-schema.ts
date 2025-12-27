@@ -13,42 +13,24 @@ const migrationsDir = path.join(__dirname, '../migrations')
 async function runMigration(filename: string): Promise<void> {
   const migrationPath = path.join(migrationsDir, filename)
   
-  // ファイル存在確認
   if (!fs.existsSync(migrationPath)) {
     throw new Error(`Migration file not found: ${filename}`)
   }
 
-  // SQLファイルを読み込み
   const sqlContent = fs.readFileSync(migrationPath, 'utf-8')
-  
-  // プールからクライアントを取得
   const pool = await getPool()
   const client = await pool.connect()
   
   try {
-    // トランザクション開始
     await client.query('BEGIN')
     
-    // セミコロンで分割して順次実行
-    // 注意: セミコロンはSQL文の区切り文字として使用
-    const statements = sqlContent
-      .split(';')
-      .map(s => s.trim())
-      .filter(s => s.length > 0 && !s.startsWith('--'))
+    // SQLファイル全体を一度に実行
+    console.log(`Executing migration: ${filename}`)
+    await client.query(sqlContent)
     
-    console.log(`Executing migration: ${filename} (${statements.length} statements)`)
-    
-    for (const statement of statements) {
-      if (statement.length > 0) {
-        await client.query(statement)
-      }
-    }
-    
-    // コミット
     await client.query('COMMIT')
     console.log(`Migration completed: ${filename}`)
   } catch (error: any) {
-    // ロールバック
     await client.query('ROLLBACK')
     console.error(`Migration failed: ${filename}`, error)
     throw new Error(`Migration ${filename} failed: ${error.message}`)
