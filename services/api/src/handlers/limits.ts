@@ -106,40 +106,4 @@ export async function handleLimitsStatus(
   }
 }
 
-export async function handler(
-  event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> {
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers, body: '' }
-  }
-
-  try {
-    const path = event.path
-    const method = event.httpMethod
-
-    // GET /v1/limits - 全リミット取得
-    if (method === 'GET' && path === '/v1/limits') {
-      return await handleLimits(event, headers)
-    }
-
-    // GET /v1/limits/status - リミット使用状況
-    if (method === 'GET' && path === '/v1/limits/status') {
-      return await handleLimitsStatus(event, headers)
-    }
-
-    return {
-      statusCode: 404,
-      headers,
-      body: JSON.stringify({ error: 'Not found' }),
-    }
-
-  } catch (error: any) {
-    console.error('Limits API error:', error)
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ error: error.message }),
-    }
-  }
-}
 
