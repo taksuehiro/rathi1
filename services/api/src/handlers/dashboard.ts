@@ -1,5 +1,6 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 import { query } from '../lib/db'
+import { handleLimits, handleLimitsStatus } from './limits'
 
 export async function handler(
   event: APIGatewayProxyEvent
@@ -19,15 +20,24 @@ export async function handler(
     }
   }
 
-  // パスによる分岐
+  // パスによる分岐（既存部分）
   const path = event.path || (event as any).rawPath
   console.log('DEBUG: path =', path)
   console.log('DEBUG: event =', JSON.stringify(event))
-  
+
   if (path === '/v1/series') {
     return handleSeries(event, headers)
   }
-  
+
+  // 🆕 リミット機能を追加
+  if (path === '/v1/limits') {
+    return handleLimits(event, headers)
+  }
+
+  if (path === '/v1/limits/status') {
+    return handleLimitsStatus(event, headers)
+  }
+
   // デフォルトはdashboard処理
   return handleDashboard(event, headers)
 }
