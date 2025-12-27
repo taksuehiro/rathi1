@@ -1,3 +1,5 @@
+import type { LimitsResponse, LimitsStatusResponse } from './api-types'
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
 export const api = {
@@ -192,6 +194,19 @@ export const api = {
       throw err
     }
   },
+}
+
+// リミット関連のAPI関数
+export async function getLimits(): Promise<LimitsResponse> {
+  const response = await fetch(`${API_BASE_URL}/v1/limits`)
+  if (!response.ok) throw new Error('Failed to fetch limits')
+  return response.json()
+}
+
+export async function getLimitsStatus(asOf: string): Promise<LimitsStatusResponse> {
+  const response = await fetch(`${API_BASE_URL}/v1/limits/status?asOf=${asOf}`)
+  if (!response.ok) throw new Error('Failed to fetch limits status')
+  return response.json()
 }
 
 // モックデータ（開発用）

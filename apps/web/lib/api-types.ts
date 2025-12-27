@@ -107,5 +107,32 @@ export interface CustomerData {
   }>
 }
 
+export interface PositionLimit {
+  id: number
+  limit_type: 'net_position' | 'customer_exposure' | 'contract_month'
+  entity_id: string | null
+  limit_value: string
+  warning_threshold: string
+  alert_threshold: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface PositionLimitStatus extends PositionLimit {
+  current_value: string
+  utilization_pct: string
+  status: 'normal' | 'warning' | 'alert'
+}
+
+export interface LimitsResponse {
+  limits: PositionLimit[]
+}
+
+export interface LimitsStatusResponse {
+  limits: PositionLimitStatus[]
+  asOf: string
+}
+
 
 
