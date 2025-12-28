@@ -267,6 +267,24 @@ export class RatispherdStack extends cdk.Stack {
       integration: dashboardIntegration,
     })
 
+    httpApi.addRoutes({
+      path: "/v1/valuation/calculate",
+      methods: [apigatewayv2.HttpMethod.POST],
+      integration: dashboardIntegration,
+    })
+
+    httpApi.addRoutes({
+      path: "/v1/valuation/monthly",
+      methods: [apigatewayv2.HttpMethod.GET],
+      integration: dashboardIntegration,
+    })
+
+    httpApi.addRoutes({
+      path: "/v1/valuation/daily",
+      methods: [apigatewayv2.HttpMethod.GET],
+      integration: dashboardIntegration,
+    })
+
     const adminIntegration = new apigatewayv2Integrations.HttpLambdaIntegration(
       "AdminIntegration",
       apiAdminHandler

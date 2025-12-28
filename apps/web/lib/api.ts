@@ -1,4 +1,11 @@
-import type { LimitsResponse, LimitsStatusResponse } from './api-types'
+import type {
+  LimitsResponse,
+  LimitsStatusResponse,
+  ValuationRequest,
+  ValuationResponse,
+  MonthlyPnLResponse,
+  DailyPnLResponse,
+} from './api-types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
@@ -206,6 +213,44 @@ export async function getLimits(): Promise<LimitsResponse> {
 export async function getLimitsStatus(asOf: string): Promise<LimitsStatusResponse> {
   const response = await fetch(`${API_BASE_URL}/v1/limits/status?asOf=${asOf}`)
   if (!response.ok) throw new Error('Failed to fetch limits status')
+  return response.json()
+}
+
+// 損益評価関連のAPI関数
+export async function calculateValuation(
+  request: ValuationRequest
+): Promise<ValuationResponse> {
+  const response = await fetch(`${API_BASE_URL}/v1/valuation/calculate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  })
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.error?.message || 'Failed to calculate valuation')
+  }
+  return response.json()
+}
+
+export async function getMonthlyPnL(yearMonth?: string): Promise<MonthlyPnLResponse> {
+  const url = yearMonth
+    ? `${API_BASE_URL}/v1/valuation/monthly?yearMonth=${yearMonth}`
+    : `${API_BASE_URL}/v1/valuation/monthly`
+  const response = await fetch(url)
+  if (!response.ok) throw new Error('Failed to fetch monthly PnL')
+  return response.json()
+}
+
+export async function getDailyPnL(
+  startDate?: string,
+  endDate?: string
+): Promise<DailyPnLResponse> {
+  const params = new URLSearchParams()
+  if (startDate) params.append('startDate', startDate)
+  if (endDate) params.append('endDate', endDate)
+  const url = `${API_BASE_URL}/v1/valuation/daily${params.toString() ? `?${params.toString()}` : ''}`
+  const response = await fetch(url)
+  if (!response.ok) throw new Error('Failed to fetch daily PnL')
   return response.json()
 }
 

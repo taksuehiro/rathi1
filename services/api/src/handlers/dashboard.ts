@@ -1,6 +1,12 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 import { query } from '../lib/db'
 import { handleLimits, handleLimitsStatus } from './limits'
+import {
+  handleCalculateMonthly,
+  handleCalculateDaily,
+  handleGetMonthly,
+  handleGetDaily,
+} from './valuation'
 
 export async function handler(
   event: APIGatewayProxyEvent
@@ -41,6 +47,32 @@ export async function handler(
   // 🆕 Trades追加
   if (path === '/v1/trades') {
     return handleTrades(event, headers)
+  }
+
+  // 🆕 Valuation追加
+  if (path === '/v1/valuation/calculate') {
+    const body = JSON.parse(event.body || '{}')
+    if (body.type === 'monthly') {
+      return handleCalculateMonthly(event, headers)
+    } else if (body.type === 'daily') {
+      return handleCalculateDaily(event, headers)
+    } else {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({
+          error: { code: 'INVALID_TYPE', message: 'type must be "monthly" or "daily"' },
+        }),
+      }
+    }
+  }
+
+  if (path === '/v1/valuation/monthly') {
+    return handleGetMonthly(event, headers)
+  }
+
+  if (path === '/v1/valuation/daily') {
+    return handleGetDaily(event, headers)
   }
 
   // デフォルトはdashboard処理

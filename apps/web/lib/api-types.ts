@@ -134,5 +134,45 @@ export interface LimitsStatusResponse {
   asOf: string
 }
 
+export interface MonthlyPnL {
+  id: number
+  valuationDate: string
+  yearMonth: string
+  unrealizedPnl: number
+  reversalPnl: number | null
+  netPnl: number
+  positionCount: number | null
+  createdAt: string
+}
+
+export interface DailyPnL {
+  id: number
+  valuationDate: string
+  realizedPnl: number
+  unrealizedPnl: number
+  totalPnl: number
+  positionCount: number | null
+  createdAt: string
+}
+
+export interface ValuationRequest {
+  valuationDate: string
+  type: 'monthly' | 'daily'
+}
+
+export interface ValuationResponse {
+  success: boolean
+  data: MonthlyPnL | DailyPnL
+  message: string
+}
+
+export interface MonthlyPnLResponse {
+  data: MonthlyPnL[]
+}
+
+export interface DailyPnLResponse {
+  data: DailyPnL[]
+}
+
 
 

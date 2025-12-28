@@ -1,6 +1,5 @@
 import http from 'http'
 import { handler as dashboardHandler } from './handlers/dashboard'
-import { handler as tradesHandler } from './handlers/trades'
 import { handler as deliveriesHandler } from './handlers/deliveries'
 import { handler as positionsHandler } from './handlers/positions'
 import { handler as curveHandler } from './handlers/curve'
@@ -57,10 +56,9 @@ const server = http.createServer(async (req, res) => {
     let handler: any = null
 
     // ルーティング
-    if (path === '/v1/dashboard' && method === 'GET') {
+    if (path.startsWith('/v1/dashboard') || path.startsWith('/v1/trades') || 
+        path.startsWith('/v1/limits') || path.startsWith('/v1/valuation')) {
       handler = dashboardHandler
-    } else if (path === '/v1/trades' && method === 'GET') {
-      handler = tradesHandler
     } else if (path === '/v1/deliveries' && method === 'GET') {
       handler = deliveriesHandler
     } else if (path === '/v1/positions' && method === 'GET') {

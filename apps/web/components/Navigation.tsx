@@ -11,6 +11,7 @@ import {
   LineChart,
   Settings,
   Shield,
+  Calculator,
 } from 'lucide-react'
 
 const menuItems = [
@@ -21,6 +22,7 @@ const menuItems = [
   { icon: Package, label: 'Positions', href: '/positions' },
   { icon: LineChart, label: 'Curve', href: '/curve' },
   { icon: Shield, label: 'Limits', href: '/limits' },
+  { icon: Calculator, label: 'Valuation', href: '/valuation' },
   { icon: Settings, label: 'Settings', href: '/settings' },
 ]
 

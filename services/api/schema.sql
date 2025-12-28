@@ -61,3 +61,4 @@ CREATE TABLE IF NOT EXISTS futures_curve (
 
 
 
+
